@@ -52,7 +52,8 @@
           "contactsPermission": "1CALL lets you choose people from your phone contacts to add to a call list."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-updates"
     ],
     "extra": {
       "apiUrl": {},
@@ -60,6 +61,14 @@
         "projectId": "16671767-dba9-45f1-9c8e-5e6d75634e16"
       }
     },
-    "owner": "asibiko"
+    "owner": "asibiko",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/16671767-dba9-45f1-9c8e-5e6d75634e16",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

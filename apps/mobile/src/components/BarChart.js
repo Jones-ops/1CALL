@@ -1,7 +1,19 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../theme';
+
+const LABEL_FONT = Platform.select({
+  ios: 'Helvetica Neue',
+  android: 'sans-serif',
+  default: 'system-ui, sans-serif',
+});
+
+/** Shorten a label to fit its bar slot (about 6 px per character at 10 px). */
+function fitLabel(name, slotWidth) {
+  const max = Math.max(3, Math.floor((slotWidth - 4) / 6));
+  return name.length > max ? `${name.slice(0, max - 1)}…` : name;
+}
 
 /** Grouped bars per campaign: green = answered, orange = unanswered. */
 export default function BarChart({ data }) {
@@ -54,10 +66,11 @@ export default function BarChart({ data }) {
                 x={cx}
                 y={h - 4}
                 fontSize="10"
+                fontFamily={LABEL_FONT}
                 fill={colors.muted}
                 textAnchor="middle"
               >
-                {d.name.length > 10 ? `${d.name.slice(0, 9)}…` : d.name}
+                {fitLabel(d.name, slot)}
               </SvgText>,
             ];
           })}

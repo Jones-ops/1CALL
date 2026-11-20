@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { goTo } from '../../utils/goTo';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useApiData } from '../../utils/useApiData';
@@ -72,13 +73,13 @@ export default function AccountScreen({ navigation }) {
           icon="star-outline"
           title="Subscription"
           sub="Plans and credits"
-          onPress={() => navigation.navigate('Subscription')}
+          onPress={() => goTo(navigation, 'Subscription')}
         />
         <MenuItem
           icon="card-outline"
           title="Payments"
           sub="M-Pesa payment history"
-          onPress={() => navigation.navigate('Payments')}
+          onPress={() => goTo(navigation, 'Payments')}
         />
         {isAdmin ? (
           <MenuItem

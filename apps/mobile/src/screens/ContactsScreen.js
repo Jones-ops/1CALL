@@ -184,7 +184,7 @@ export function ImportCard({ onImported }) {
         <Button
           title={file ? `File: ${file.name}` : 'Choose CSV or Excel file'}
           variant="secondary"
-          icon="document-attach-outline"
+          icon="document-text-outline"
           onPress={pickFile}
           style={{ flexGrow: 1 }}
         />

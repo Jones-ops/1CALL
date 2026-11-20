@@ -2,6 +2,7 @@
 // it only polls the server, which activates the plan from the verified
 // Safaricom callback (or the server-side mock callback in mock mode).
 import { useEffect, useRef, useState } from 'react';
+import { goTo } from '../../utils/goTo';
 import { ActivityIndicator, View } from 'react-native';
 import { formatKes, isKenyanMobile } from '@1call/shared';
 import { api, errorMessage } from '../../api/client';
@@ -82,7 +83,7 @@ export default function PayScreen({ route, navigation }) {
           <T>No plan selected.</T>
           <Button
             title="Choose a plan"
-            onPress={() => navigation.navigate('Subscription')}
+            onPress={() => goTo(navigation, 'Subscription')}
             style={{ marginTop: 10 }}
           />
         </Card>
@@ -150,13 +151,13 @@ export default function PayScreen({ route, navigation }) {
             {appConfig?.mockPayments ? (
               <Row>
                 <Button
-                  title="Mock: customer enters PIN"
+                  title="Complete test payment"
                   onPress={() => mock('complete')}
                   disabled={busy}
                   testID="mock-pin"
                 />
                 <Button
-                  title="Mock: customer cancels"
+                  title="Cancel test payment"
                   variant="secondary"
                   onPress={() => mock('cancel')}
                   disabled={busy}
@@ -177,7 +178,7 @@ export default function PayScreen({ route, navigation }) {
             </T>
             <Button
               title="Back to subscription"
-              onPress={() => navigation.navigate('Subscription')}
+              onPress={() => goTo(navigation, 'Subscription')}
               style={{ marginTop: 12 }}
             />
           </View>
@@ -205,7 +206,7 @@ export default function PayScreen({ route, navigation }) {
               <Button
                 title="Payment history"
                 variant="secondary"
-                onPress={() => navigation.navigate('Payments')}
+                onPress={() => goTo(navigation, 'Payments')}
               />
             </Row>
           </View>

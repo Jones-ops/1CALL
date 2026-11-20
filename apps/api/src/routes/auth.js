@@ -85,9 +85,12 @@ router.post(
       targetType: 'user',
       targetId: user.id,
     });
-    res
-      .status(201)
-      .json({ ok: true, message: 'Check your email for a verification link.', ...dev });
+    res.status(201).json({
+      ok: true,
+      message: 'Check your email for a verification link.',
+      verificationRequired: config.auth.requireEmailVerification,
+      ...dev,
+    });
   },
 );
 

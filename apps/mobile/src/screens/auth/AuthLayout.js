@@ -2,7 +2,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_BLUE, useTheme } from '../../theme';
 import Logo from '../../components/Logo';
-import { Card, H1, MockBanner, Sub } from '../../components/ui';
+import { Card, H1, Sub } from '../../components/ui';
 
 /** The prototype's centred login card with the logo on a blue pill. */
 export default function AuthLayout({ title, sub, children }) {
@@ -10,7 +10,6 @@ export default function AuthLayout({ title, sub, children }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <MockBanner />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

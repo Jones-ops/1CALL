@@ -7,7 +7,7 @@ import AuthLayout from './AuthLayout';
 import { TextLink } from './SignInScreen';
 
 export default function SignUpScreen({ navigation }) {
-  const { appConfig } = useAuth();
+  const { signIn } = useAuth();
   const [f, setF] = useState({ orgName: '', name: '', email: '', phone: '', password: '' });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -32,6 +32,10 @@ export default function SignUpScreen({ navigation }) {
         body: { ...f, email: f.email.trim() },
         auth: false,
       });
+      if (r.verificationRequired === false) {
+        await signIn(f.email.trim(), f.password);
+        return;
+      }
       setDone(r);
     } catch (e) {
       setError(errorMessage(e));
@@ -40,7 +44,7 @@ export default function SignUpScreen({ navigation }) {
     }
   }
 
-  async function mockVerify() {
+  async function verifyNow() {
     try {
       await api('/auth/verify-email', {
         method: 'POST',
@@ -59,12 +63,8 @@ export default function SignUpScreen({ navigation }) {
         title="Check your email"
         sub={`We sent a verification link to ${f.email.trim()}. Open it, then sign in.`}
       >
-        {appConfig?.mockMode && done.devVerifyToken ? (
-          <Button
-            title="Mock: open verification link"
-            onPress={mockVerify}
-            style={{ marginBottom: 10 }}
-          />
+        {done.devVerifyToken ? (
+          <Button title="Verify email now" onPress={verifyNow} style={{ marginBottom: 10 }} />
         ) : null}
         <ErrorText>{error}</ErrorText>
         <Button

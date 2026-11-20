@@ -1,9 +1,21 @@
 // HTTP client: attaches the 15-minute access token, refreshes it with the
 // rotating refresh token (kept in expo-secure-store) on 401, and retries once.
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
 
 const REFRESH_KEY = '1call.refreshToken';
+
+// Phones keep the refresh token in the secure keystore. The browser preview
+// (used for UI checks) has no keystore, so it falls back to localStorage.
+const store =
+  Platform.OS === 'web'
+    ? {
+        getItemAsync: async (k) => globalThis.localStorage?.getItem(k) ?? null,
+        setItemAsync: async (k, v) => globalThis.localStorage?.setItem(k, v),
+        deleteItemAsync: async (k) => globalThis.localStorage?.removeItem(k),
+      }
+    : SecureStore;
 let accessToken = null;
 let refreshing = null;
 let onSessionExpired = () => {};
@@ -24,15 +36,15 @@ export const getAccessToken = () => accessToken;
 
 export async function saveSession({ accessToken: a, refreshToken }) {
   accessToken = a;
-  if (refreshToken) await SecureStore.setItemAsync(REFRESH_KEY, refreshToken);
+  if (refreshToken) await store.setItemAsync(REFRESH_KEY, refreshToken);
 }
 
 export async function clearSession() {
   accessToken = null;
-  await SecureStore.deleteItemAsync(REFRESH_KEY);
+  await store.deleteItemAsync(REFRESH_KEY);
 }
 
-export const getRefreshToken = () => SecureStore.getItemAsync(REFRESH_KEY);
+export const getRefreshToken = () => store.getItemAsync(REFRESH_KEY);
 
 async function refresh() {
   if (!refreshing) {
@@ -92,9 +104,10 @@ export async function api(path, { method = 'GET', body, form, auth = true, raw =
   let res;
   try {
     res = await doFetch();
-  } catch {
+  } catch (e) {
+    // Include the server address and the underlying error so failures can be diagnosed.
     throw new ApiError(
-      'Cannot reach the 1CALL server. Check your internet connection.',
+      `Cannot reach the 1CALL server (${API_URL}). Check your internet connection.${e?.message ? ` [${e.message}]` : ''}`,
       0,
       'NETWORK',
     );

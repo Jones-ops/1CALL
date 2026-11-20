@@ -21,7 +21,7 @@ export function TextLink({ title, onPress }) {
 }
 
 export default function SignInScreen({ navigation }) {
-  const { signIn, appConfig } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -56,7 +56,7 @@ export default function SignInScreen({ navigation }) {
           body: { token: r.devVerifyToken },
           auth: false,
         });
-        setInfo('Mock mode: email verified automatically. Sign in again.');
+        setInfo('Your email is verified. Sign in again.');
         setUnverified(false);
         setError(null);
       } else {
@@ -97,7 +97,7 @@ export default function SignInScreen({ navigation }) {
       ) : null}
       {unverified ? (
         <Button
-          title={appConfig?.mockMode ? 'Verify email (mock)' : 'Resend verification email'}
+          title="Resend verification email"
           variant="secondary"
           onPress={resend}
           style={{ marginBottom: 8 }}
@@ -122,12 +122,6 @@ export default function SignInScreen({ navigation }) {
         <TextLink title="Create an account" onPress={() => navigation.navigate('SignUp')} />
         <TextLink title="Forgot password?" onPress={() => navigation.navigate('ForgotPassword')} />
       </View>
-      {appConfig?.mockMode ? (
-        <T tone="muted" style={{ fontSize: 13, marginTop: 8 }}>
-          Demo accounts: demo@1call.example / Demo1234! · admin@1call.example / Admin1234!
-          (administrator area).
-        </T>
-      ) : null}
     </AuthLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { goTo } from '../../utils/goTo';
 import { formatKes } from '@1call/shared';
 import { useApiData } from '../../utils/useApiData';
 import { Button, Card, ErrorText, H2, Loading, Screen, T, statusTone } from '../../components/ui';
@@ -51,7 +52,7 @@ export default function PaymentsScreen({ navigation }) {
         <T style={{ marginBottom: 10 }}>Buy credits by choosing a plan.</T>
         <Button
           title="Choose a plan"
-          onPress={() => navigation.navigate('Subscription')}
+          onPress={() => goTo(navigation, 'Subscription')}
           style={{ alignSelf: 'flex-start' }}
         />
       </Card>

@@ -17,33 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MIN_TOUCH, radius, useTheme } from '../theme';
-import { useAuth } from '../context/AuthContext';
-import { MOCK_BANNER_TEXT } from '@1call/shared';
-
-export function MockBanner() {
-  const { colors } = useTheme();
-  const { appConfig } = useAuth();
-  if (appConfig && !appConfig.mockMode) return null;
-  return (
-    <View
-      accessibilityRole="alert"
-      style={{
-        backgroundColor: colors.warningBg,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.accent,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-      }}
-    >
-      <Text style={{ color: colors.warning, textAlign: 'center', fontSize: 13, fontWeight: '600' }}>
-        {appConfig?.bannerText || MOCK_BANNER_TEXT}
-      </Text>
-    </View>
-  );
-}
-
 /**
- * Page shell: safe area + mock banner + scrollable content with h1/sub.
+ * Page shell: safe area + scrollable content with h1/sub.
  * Pass `scroll={false}` to render a FlatList yourself (use ScreenHeader inside it).
  */
 export function Screen({
@@ -61,7 +36,6 @@ export function Screen({
   const head = <ScreenHeader title={title} sub={sub} back={back} />;
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }} testID={testID}>
-      <MockBanner />
       {scroll ? (
         <ScrollView
           contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
