@@ -24,4 +24,4 @@ COPY apps/worker apps/worker
 
 ENV NODE_ENV=production
 EXPOSE 4000
-CMD ["node", "apps/api/src/server.js"]
+CMD ["sh", "/app/apps/api/scripts/start.sh"]

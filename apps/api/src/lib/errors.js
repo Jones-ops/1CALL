@@ -25,11 +25,9 @@ export function notFoundHandler(req, res) {
 
 export function errorHandler(err, req, res, _next) {
   if (err instanceof ZodError) {
-    return res
-      .status(400)
-      .json({
-        error: { message: 'Validation failed', code: 'VALIDATION', details: err.flatten() },
-      });
+    return res.status(400).json({
+      error: { message: 'Validation failed', code: 'VALIDATION', details: err.flatten() },
+    });
   }
   if (err instanceof multer.MulterError) {
     return res.status(400).json({ error: { message: err.message, code: 'UPLOAD' } });

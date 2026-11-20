@@ -46,6 +46,7 @@ services:
       DATABASE_URL: postgresql://onecall:onecall@postgres:5432/onecall
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
+      TRUST_PROXY: '0' # no proxy in front: don't trust X-Forwarded-For
     ports: ['4000:4000']
     depends_on:
       postgres: { condition: service_healthy }

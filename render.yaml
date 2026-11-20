@@ -15,7 +15,8 @@ services:
     region: frankfurt
     plan: starter # disks and an always-on dialer need a paid instance
     dockerfilePath: ./Dockerfile
-    dockerCommand: sh -c "cd apps/api && npx prisma migrate deploy && node prisma/bootstrap.js && node src/server.js"
+    # No quotes here: Render does not run this through a shell.
+    dockerCommand: sh /app/apps/api/scripts/start.sh
     healthCheckPath: /health
     disk:
       name: uploads
@@ -42,5 +43,7 @@ services:
         sync: false # you are asked for this when creating the Blueprint
       - key: ADMIN_PASSWORD
         sync: false
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: 'false' # set to 'true' once SMTP_URL is configured (emails can't be sent before that)
       - key: SMTP_URL
         sync: false # optional; without it verification emails go to the logs

@@ -48,7 +48,7 @@ async function sendVerification(user) {
     subject: 'Verify your 1CALL account',
     text: `Hello ${user.name},\n\nConfirm your email address to start using 1CALL:\n${url}\n\nThis link expires in 24 hours.`,
   });
-  return config.mockMode ? { devVerifyUrl: url, devVerifyToken: token } : {};
+  return config.exposeDevTokens ? { devVerifyUrl: url, devVerifyToken: token } : {};
 }
 
 router.post(
@@ -108,6 +108,17 @@ router.post(
       dummyHash ??= await hashPassword('dummy-password-for-timing');
       await argon2.verify(dummyHash, pw).catch(() => false);
       throw unauthorized('Email or password is incorrect.', 'BAD_CREDENTIALS');
+    }
+    const since = new Date(Math.max(Date.now() - 15 * 60_000, user.lastLoginAt?.getTime() ?? 0));
+    const recentFailures = await prisma.auditLog.count({
+      where: { actorId: user.id, action: 'auth.login_failed', createdAt: { gt: since } },
+    });
+    if (recentFailures >= 10) {
+      throw new HttpError(
+        429,
+        'Too many failed sign-in attempts. Try again in 15 minutes or reset your password.',
+        'ACCOUNT_LOCKED',
+      );
     }
     const ok = await argon2.verify(user.passwordHash, pw).catch(() => false);
     if (!ok) {
@@ -185,7 +196,7 @@ router.post('/forgot-password', validate(z.object({ email })), async (req, res) 
       text: `Your 1CALL password reset code is:\n\n${token}\n\nPaste it into the app. It expires in 1 hour. If you did not ask for this, ignore this email.`,
     });
     await audit({ actorId: user.id, orgId: user.orgId, ip: req.ip }, 'auth.forgot_password');
-    if (config.mockMode) dev = { devResetToken: token };
+    if (config.exposeDevTokens) dev = { devResetToken: token };
   }
   res.json({
     ok: true,

@@ -80,7 +80,19 @@ router.get(
   validate(
     z.object({
       page: z.coerce.number().int().min(1).default(1),
-      status: z.string().max(20).optional(),
+      status: z
+        .enum([
+          'queued',
+          'ringing',
+          'answered',
+          'played',
+          'unanswered',
+          'busy',
+          'failed',
+          'suppressed',
+          'cancelled',
+        ])
+        .optional(),
     }),
     'query',
   ),

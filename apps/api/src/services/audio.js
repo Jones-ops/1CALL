@@ -10,7 +10,19 @@ import { badRequest } from '../lib/errors.js';
 
 const FFMPEG = process.env.FFMPEG_PATH || ffmpegStatic || 'ffmpeg';
 
-export const ALLOWED_AUDIO_EXT = ['mp3', 'wav', 'm4a', 'aac', 'mp4', '3gp', 'caf', 'webm', 'ogg'];
+// Extension -> the only ffmpeg demuxer allowed to read it.
+const DEMUXER = {
+  mp3: 'mp3',
+  wav: 'wav',
+  m4a: 'mov',
+  mp4: 'mov',
+  '3gp': 'mov',
+  aac: 'aac',
+  caf: 'caf',
+  webm: 'matroska',
+  ogg: 'ogg',
+};
+export const ALLOWED_AUDIO_EXT = Object.keys(DEMUXER);
 export const MAX_DURATION_SEC = 300;
 
 function run(args) {
@@ -46,7 +58,8 @@ export function wavDurationSec(buf) {
 }
 
 export async function convertToTelephonyWav(input, originalName = 'audio') {
-  const ext = path.extname(originalName).slice(1).toLowerCase() || 'bin';
+  const ext = path.extname(originalName).slice(1).toLowerCase();
+  if (!DEMUXER[ext]) throw badRequest('Use an MP3, WAV or M4A file.', 'AUDIO_INVALID');
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), '1call-'));
   const inFile = path.join(dir, `in-${crypto.randomUUID()}.${ext}`);
   const outFile = path.join(dir, 'out.wav');
@@ -57,6 +70,10 @@ export async function convertToTelephonyWav(input, originalName = 'audio') {
       '-loglevel',
       'error',
       '-y',
+      '-protocol_whitelist',
+      'file',
+      '-f',
+      DEMUXER[ext],
       '-i',
       inFile,
       '-vn',

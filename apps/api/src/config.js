@@ -65,6 +65,9 @@ export const config = {
   redisUrl: process.env.REDIS_URL || '',
 
   mockMode,
+  // Return email verification / reset tokens in API responses (local testing only).
+  // NEVER in production: it would let anyone reset anyone's password.
+  exposeDevTokens: mockMode && !isProd,
   get mockVoice() {
     return this.voice.provider === 'mock';
   },
