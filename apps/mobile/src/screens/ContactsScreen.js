@@ -11,6 +11,7 @@ import {
   parseImportText,
 } from '@1call/shared';
 import { api, errorMessage } from '../api/client';
+import { appendFile } from '../utils/filePart';
 import {
   Button,
   Card,
@@ -109,11 +110,7 @@ export function ImportCard({ onImported }) {
       if (file) {
         const form = new FormData();
         form.append('groupName', groupName);
-        form.append('file', {
-          uri: file.uri,
-          name: file.name,
-          type: file.mimeType || 'application/octet-stream',
-        });
+        await appendFile(form, 'file', { uri: file.uri, name: file.name, webFile: file.file });
         r = await api('/contacts/import/preview', { method: 'POST', form });
       } else {
         r = await api('/contacts/import/preview', { method: 'POST', body: { text, groupName } });

@@ -10,6 +10,7 @@ import {
 } from 'expo-audio';
 import { formatDuration } from '@1call/shared';
 import { api, errorMessage } from '../api/client';
+import { appendFile } from '../utils/filePart';
 import { useApiData } from '../utils/useApiData';
 import AudioPlayer from '../components/AudioPlayer';
 import {
@@ -145,7 +146,7 @@ export default function RecordScreen({ navigation }) {
       setError('Choose an MP3, WAV or M4A file.');
       return;
     }
-    setClip({ uri: a.uri, name: a.name, type: a.mimeType || 'audio/mpeg', durationSec: null });
+    setClip({ uri: a.uri, name: a.name, webFile: a.file, durationSec: null });
     setName(a.name.replace(/\.[^.]+$/, ''));
     setPhase('done');
   }
@@ -157,7 +158,7 @@ export default function RecordScreen({ navigation }) {
       const form = new FormData();
       form.append('name', name.trim());
       form.append('identifiesCaller', 'true');
-      form.append('file', { uri: clip.uri, name: clip.name, type: clip.type });
+      await appendFile(form, 'file', { uri: clip.uri, name: clip.name, webFile: clip.webFile });
       const r = await api('/recordings', { method: 'POST', form });
       if (r.warning) Alert.alert('Longer than 30 seconds', r.warning);
       discard();

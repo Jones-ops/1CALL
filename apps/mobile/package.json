@@ -11,8 +11,8 @@
     "build:android": "eas build -p android",
     "build:ios": "eas build -p ios",
     "web": "expo start --web",
-    "update:preview": "eas update --channel preview --environment preview",
-    "update:production": "eas update --channel production --environment production"
+    "update:preview": "node scripts/publish-update.js preview",
+    "update:production": "node scripts/publish-update.js production"
   },
   "dependencies": {
     "@1call/shared": "1.0.0",
