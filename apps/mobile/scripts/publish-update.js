@@ -16,7 +16,7 @@ if (!apiUrl || !apiUrl.startsWith('https://'))
 console.log(`Publishing to channel "${channel}" with API ${apiUrl}`);
 const r = spawnSync(
   'npx',
-  ['eas-cli@latest', 'update', '--channel', channel, '--message', JSON.stringify(message), '--non-interactive'],
+  ['eas-cli@latest', 'update', '--channel', channel, '--environment', channel, '--message', JSON.stringify(message), '--non-interactive'],
   { stdio: 'inherit', shell: true, env: { ...process.env, EXPO_PUBLIC_API_URL: apiUrl } },
 );
 process.exit(r.status ?? 1);
