@@ -1,0 +1,8 @@
+node_modules
+**/node_modules
+apps/mobile
+.env
+apps/api/uploads
+apps/api/.test-pg
+.git
+apps/api/.dev-pg

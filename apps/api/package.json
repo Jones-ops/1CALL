@@ -1,0 +1,62 @@
+{
+  "name": "@1call/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/server.js",
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node scripts/prisma.js migrate dev",
+    "migrate:deploy": "node scripts/prisma.js migrate deploy",
+    "generate": "node scripts/prisma.js generate",
+    "seed": "node prisma/seed.js",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --runInBand",
+    "prisma": "node scripts/prisma.js",
+    "postinstall": "prisma generate",
+    "db": "node scripts/dev-db.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@1call/shared": "1.0.0",
+    "@aws-sdk/client-s3": "^3.920.0",
+    "@aws-sdk/s3-request-presigner": "^3.920.0",
+    "@prisma/client": "^6.19.0",
+    "argon2": "^0.44.0",
+    "bullmq": "^5.61.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^6.1.0",
+    "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "ffmpeg-static": "^5.2.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.8.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.10",
+    "socket.io": "^4.8.1",
+    "zod": "^3.25.76",
+    "prisma": "^6.19.0"
+  },
+  "devDependencies": {
+    "embedded-postgres": "^17.6.0-beta.15",
+    "supertest": "^7.1.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "globalSetup": "./test/globalSetup.js",
+    "globalTeardown": "./test/globalTeardown.js",
+    "setupFiles": [
+      "./test/setupEnv.js"
+    ],
+    "testTimeout": 30000
+  }
+}

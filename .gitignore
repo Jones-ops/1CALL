@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*.local
+apps/api/uploads/
+apps/api/.test-pg/
+coverage/
+.expo/
+dist/
+web-build/
+*.log
+.DS_Store
+apps/mobile/android/
+apps/mobile/ios/
+apps/api/.dev-pg/

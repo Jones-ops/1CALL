@@ -1,0 +1,387 @@
+// 1CALL data model.
+// Credits: the balance is ALWAYS the sum of CreditLedger rows. There is no
+// mutable balance column anywhere.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgStatus {
+  active
+  suspended
+}
+
+enum Role {
+  owner
+  member
+  admin
+}
+
+enum LedgerReason {
+  purchase
+  campaign_reserve
+  campaign_release
+  call_charge
+  bonus
+  refund
+}
+
+enum ConsentSource {
+  web_form
+  sms_optin
+  event_signup
+  paper_form
+  existing_customer
+}
+
+enum SuppressionSource {
+  press9
+  manual
+  admin
+}
+
+enum CampaignCategory {
+  informational
+  transactional
+  promotional
+  political
+}
+
+enum CampaignStatus {
+  draft
+  pending_approval
+  scheduled
+  running
+  paused
+  completed
+  cancelled
+  rejected
+}
+
+enum CallStatus {
+  queued
+  ringing
+  answered
+  played
+  unanswered
+  busy
+  failed
+  suppressed
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+}
+
+enum AuthTokenType {
+  verify_email
+  reset_password
+}
+
+model Organization {
+  id            String          @id @default(cuid())
+  name          String
+  verified      Boolean         @default(false)
+  status        OrgStatus       @default(active)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  users         User[]
+  subscriptions Subscription[]
+  ledger        CreditLedger[]
+  groups        ContactGroup[]
+  contacts      Contact[]
+  imports       ContactImport[]
+  suppressions  Suppression[]
+  recordings    Recording[]
+  campaigns     Campaign[]
+  payments      Payment[]
+}
+
+model User {
+  id              String         @id @default(cuid())
+  orgId           String
+  org             Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name            String
+  email           String         @unique
+  phone           String?
+  passwordHash    String
+  role            Role           @default(owner)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  refreshTokens   RefreshToken[]
+  authTokens      AuthToken[]
+  imports         ContactImport[]
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  familyId   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([familyId])
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+}
+
+model Plan {
+  id            String         @id @default(cuid())
+  name          String
+  priceKes      Int
+  credits       Int
+  days          Int
+  maxRecipients Int
+  concurrency   Int
+  active        Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+  payments      Payment[]
+}
+
+model Subscription {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  planId    String
+  plan      Plan         @relation(fields: [planId], references: [id])
+  paymentId String?      @unique
+  startsAt  DateTime
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+
+  @@index([orgId, expiresAt])
+}
+
+model CreditLedger {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  delta     Int
+  reason    LedgerReason
+  refId     String?
+  note      String?
+  actorId   String?
+  createdAt DateTime     @default(now())
+
+  @@index([orgId])
+  @@index([refId])
+}
+
+model ContactGroup {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime     @default(now())
+  contacts  Contact[]
+  campaigns Campaign[]
+
+  @@unique([orgId, name])
+}
+
+model Contact {
+  id            String         @id @default(cuid())
+  orgId         String
+  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  groupId       String
+  group         ContactGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name          String         @default("")
+  phoneE164     String
+  consentSource ConsentSource
+  consentAt     DateTime
+  importId      String?
+  import        ContactImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+  createdAt     DateTime       @default(now())
+  callAttempts  CallAttempt[]
+
+  @@unique([orgId, phoneE164, groupId])
+  @@index([orgId, groupId])
+}
+
+model ContactImport {
+  id                  String        @id @default(cuid())
+  orgId               String
+  org                 Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId             String
+  source              String
+  consentSource       ConsentSource
+  declarationAccepted Boolean
+  totalRows           Int
+  validCount          Int
+  duplicateCount      Int
+  invalidCount        Int
+  importedCount       Int
+  ip                  String?
+  userAgent           String?
+  createdAt           DateTime      @default(now())
+  contacts            Contact[]
+}
+
+/// orgId = null means the number is on the GLOBAL suppression list.
+model Suppression {
+  id        String            @id @default(cuid())
+  orgId     String?
+  org       Organization?     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  phoneE164 String
+  source    SuppressionSource
+  note      String?
+  createdAt DateTime          @default(now())
+
+  @@unique([orgId, phoneE164])
+  @@index([phoneE164])
+}
+
+model Recording {
+  id               String       @id @default(cuid())
+  orgId            String
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name             String
+  storageKey       String
+  contentType      String       @default("audio/wav")
+  durationSec      Float
+  sizeBytes        Int          @default(0)
+  identifiesCaller Boolean
+  deletedAt        DateTime?
+  createdAt        DateTime     @default(now())
+  campaigns        Campaign[]
+}
+
+model Campaign {
+  id                   String           @id @default(cuid())
+  orgId                String
+  org                  Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdById          String?
+  name                 String
+  groupId              String
+  group                ContactGroup     @relation(fields: [groupId], references: [id])
+  recordingId          String
+  recording            Recording        @relation(fields: [recordingId], references: [id])
+  category             CampaignCategory
+  scheduledAt          DateTime?
+  optOutEnabled        Boolean          @default(true)
+  status               CampaignStatus   @default(draft)
+  concurrency          Int              @default(5)
+  creditsPerCall       Int              @default(1)
+  // Totals (final outcome per recipient)
+  recipients           Int              @default(0)
+  processed            Int              @default(0)
+  answered             Int              @default(0)
+  played               Int              @default(0)
+  unanswered           Int              @default(0)
+  busy                 Int              @default(0)
+  failed               Int              @default(0)
+  skipped              Int              @default(0)
+  optOuts              Int              @default(0)
+  creditsReserved      Int              @default(0)
+  creditsUsed          Int              @default(0)
+  // Declarations
+  declarationsAccepted Boolean          @default(false)
+  declarationsAt       DateTime?
+  declarationsIp       String?
+  // Approval
+  requiresApproval     Boolean          @default(false)
+  approvedById         String?
+  approvedAt           DateTime?
+  rejectedReason       String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  calls                CallAttempt[]
+
+  @@index([orgId, createdAt])
+  @@index([status])
+}
+
+model CallAttempt {
+  id             String     @id @default(cuid())
+  campaignId     String
+  campaign       Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId      String?
+  contact        Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  orgId          String
+  phoneE164      String
+  contactName    String     @default("")
+  attemptNo      Int        @default(1)
+  providerCallId String?    @unique
+  status         CallStatus @default(queued)
+  notBefore      DateTime   @default(now())
+  dialedAt       DateTime?
+  answeredAt     DateTime?
+  endedAt        DateTime?
+  durationSec    Int        @default(0)
+  creditsCharged Int        @default(0)
+  dtmf           String?
+  error          String?
+  createdAt      DateTime   @default(now())
+
+  @@index([campaignId, status, notBefore])
+  @@index([orgId, status])
+  @@index([status, dialedAt])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  orgId             String
+  org               Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  planId            String
+  plan              Plan          @relation(fields: [planId], references: [id])
+  userId            String?
+  amountKes         Int
+  phone             String
+  status            PaymentStatus @default(pending)
+  merchantRequestId String?
+  checkoutRequestId String?       @unique
+  mpesaReceipt      String?       @unique
+  resultCode        Int?
+  resultDesc        String?
+  rawCallback       Json?
+  processedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([status])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  orgId      String?
+  action     String
+  targetType String?
+  targetId   String?
+  details    Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([action])
+}
