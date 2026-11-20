@@ -32,8 +32,12 @@ async function main() {
   const email = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD || '';
   if (email && password) {
-    if (!(await prisma.user.findUnique({ where: { email } }))) {
-      if (password.length < 10) throw new Error('ADMIN_PASSWORD must be at least 10 characters');
+    if (password.length < 10) {
+      // Don't take the whole API down over this: warn and skip creating the admin.
+      console.error(
+        '[bootstrap] ADMIN_PASSWORD must be at least 10 characters: admin NOT created. Fix it in the environment and redeploy.',
+      );
+    } else if (!(await prisma.user.findUnique({ where: { email } }))) {
       await prisma.user.create({
         data: {
           name: 'Platform Admin',
