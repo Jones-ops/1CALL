@@ -1,21 +1,9 @@
 // HTTP client: attaches the 15-minute access token, refreshes it with the
 // rotating refresh token (kept in expo-secure-store) on 401, and retries once.
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
+import { storage as store } from '../utils/storage';
 
 const REFRESH_KEY = '1call.refreshToken';
-
-// Phones keep the refresh token in the secure keystore. The browser preview
-// (used for UI checks) has no keystore, so it falls back to localStorage.
-const store =
-  Platform.OS === 'web'
-    ? {
-        getItemAsync: async (k) => globalThis.localStorage?.getItem(k) ?? null,
-        setItemAsync: async (k, v) => globalThis.localStorage?.setItem(k, v),
-        deleteItemAsync: async (k) => globalThis.localStorage?.removeItem(k),
-      }
-    : SecureStore;
 let accessToken = null;
 let refreshing = null;
 let onSessionExpired = () => {};

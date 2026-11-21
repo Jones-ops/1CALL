@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { ImportCard } from '../src/screens/ContactsScreen';
+import { ImportCard } from '../src/screens/ImportContactsScreen';
 import { renderScreen } from '../test-utils';
 import { api } from '../src/api/client';
 
@@ -72,8 +72,11 @@ test('previews on the server, shows counts and statuses, and requires the consen
       },
     }),
   );
-  expect(await screen.findByText(/2 contacts added to “Parents”/)).toBeTruthy();
-  expect(onImported).toHaveBeenCalled();
+  await waitFor(() =>
+    expect(onImported).toHaveBeenCalledWith(
+      expect.objectContaining({ imported: 2, groupName: 'Parents' }),
+    ),
+  );
 });
 
 test('"Add N contacts" stays disabled when nothing is valid', async () => {

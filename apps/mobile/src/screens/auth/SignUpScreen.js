@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { normalizePhone } from '@1call/shared';
 import { api, errorMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../i18n';
 import { Button, ErrorText, Field, T } from '../../components/ui';
 import AuthLayout from './AuthLayout';
 import { TextLink } from './SignInScreen';
 
 export default function SignUpScreen({ navigation }) {
   const { signIn } = useAuth();
+  const { t } = useI18n();
   const [f, setF] = useState({ orgName: '', name: '', email: '', phone: '', password: '' });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -60,15 +62,15 @@ export default function SignUpScreen({ navigation }) {
   if (done) {
     return (
       <AuthLayout
-        title="Check your email"
-        sub={`We sent a verification link to ${f.email.trim()}. Open it, then sign in.`}
+        title={t('auth.checkEmail')}
+        sub={t('auth.checkEmailSub', { email: f.email.trim() })}
       >
         {done.devVerifyToken ? (
-          <Button title="Verify email now" onPress={verifyNow} style={{ marginBottom: 10 }} />
+          <Button title={t('auth.verifyNow')} onPress={verifyNow} style={{ marginBottom: 10 }} />
         ) : null}
         <ErrorText>{error}</ErrorText>
         <Button
-          title="Back to sign in"
+          title={t('auth.backToSignIn')}
           variant="secondary"
           onPress={() => navigation.navigate('SignIn')}
         />
@@ -77,19 +79,21 @@ export default function SignUpScreen({ navigation }) {
   }
 
   return (
-    <AuthLayout
-      title="Create your account"
-      sub="Broadcast one voice message to thousands of people."
-    >
+    <AuthLayout title={t('auth.createTitle')} sub={t('auth.createSub')}>
       <Field
-        label="Organisation name"
+        label={t('auth.orgName')}
         value={f.orgName}
         onChangeText={set('orgName')}
-        placeholder="e.g. Hope Community Church"
+        placeholder={t('auth.orgNamePh')}
       />
-      <Field label="Your name" value={f.name} onChangeText={set('name')} autoComplete="name" />
       <Field
-        label="Email"
+        label={t('auth.yourName')}
+        value={f.name}
+        onChangeText={set('name')}
+        autoComplete="name"
+      />
+      <Field
+        label={t('auth.email')}
         value={f.email}
         onChangeText={set('email')}
         keyboardType="email-address"
@@ -97,15 +101,15 @@ export default function SignUpScreen({ navigation }) {
         autoComplete="email"
       />
       <Field
-        label="Phone"
+        label={t('auth.phone')}
         value={f.phone}
         onChangeText={set('phone')}
         keyboardType="phone-pad"
         placeholder="0712 345 678"
-        error={phoneOk ? null : 'Enter a valid phone number'}
+        error={phoneOk ? null : t('auth.phoneError')}
       />
       <Field
-        label="Password (at least 8 characters)"
+        label={t('auth.passwordNew')}
         value={f.password}
         onChangeText={set('password')}
         secureTextEntry
@@ -113,17 +117,16 @@ export default function SignUpScreen({ navigation }) {
       />
       <ErrorText>{error}</ErrorText>
       <Button
-        title="Create account"
+        title={t('auth.createButton')}
         onPress={submit}
         loading={busy}
         disabled={!valid}
         style={{ marginTop: 14 }}
       />
       <T tone="muted" style={{ fontSize: 13, marginTop: 10 }}>
-        By creating an account you agree to call only people who consented to receive calls from
-        you.
+        {t('auth.consentNote')}
       </T>
-      <TextLink title="I already have an account" onPress={() => navigation.navigate('SignIn')} />
+      <TextLink title={t('auth.haveAccount')} onPress={() => navigation.navigate('SignIn')} />
     </AuthLayout>
   );
 }

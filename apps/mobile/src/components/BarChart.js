@@ -1,83 +1,57 @@
-import { useState } from 'react';
-import { Platform, View } from 'react-native';
-import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
+// Campaign history as horizontal bars: one row per campaign with its full name,
+// green = answered, orange = unanswered (scaled to the largest campaign).
+import { Text, View } from 'react-native';
 import { useTheme } from '../theme';
+import { useI18n } from '../i18n';
 
-const LABEL_FONT = Platform.select({
-  ios: 'Helvetica Neue',
-  android: 'sans-serif',
-  default: 'system-ui, sans-serif',
-});
-
-/** Shorten a label to fit its bar slot (about 6 px per character at 10 px). */
-function fitLabel(name, slotWidth) {
-  const max = Math.max(3, Math.floor((slotWidth - 4) / 6));
-  return name.length > max ? `${name.slice(0, max - 1)}…` : name;
-}
-
-/** Grouped bars per campaign: green = answered, orange = unanswered. */
-export default function BarChart({ data }) {
+export default function BarChart({ data, onPressItem }) {
   const { colors } = useTheme();
-  const [w, setW] = useState(0);
-  const h = 140;
-  const base = h - 18;
-  const max = Math.max(1, ...data.map((d) => Math.max(d.answered, d.unanswered)));
-  const slot = data.length ? w / data.length : 0;
-  const bar = Math.max(4, Math.min(28, slot * 0.32));
-  const summary = data
-    .map((d) => `${d.name}: ${d.answered} answered, ${d.unanswered} unanswered`)
-    .join('. ');
-
+  const { t } = useI18n();
+  const max = Math.max(1, ...data.map((d) => d.answered + d.unanswered + (d.failed || 0)));
   return (
     <View
-      onLayout={(e) => setW(e.nativeEvent.layout.width)}
       accessible
       accessibilityRole="image"
-      accessibilityLabel={`Answered versus unanswered calls per campaign. ${summary}`}
+      accessibilityLabel={data
+        .map((d) => t('chart.a11y', { name: d.name, a: d.answered, u: d.unanswered }))
+        .join('. ')}
+      style={{ gap: 12 }}
     >
-      {w > 0 ? (
-        <Svg width={w} height={h}>
-          <Line x1={0} x2={w} y1={base} y2={base} stroke={colors.border} strokeWidth={1} />
-          {data.map((d, i) => {
-            const cx = slot * i + slot / 2;
-            const ha = (d.answered / max) * (base - 8);
-            const hu = (d.unanswered / max) * (base - 8);
-            return [
-              <Rect
-                key={`a${i}`}
-                x={cx - bar - 1}
-                y={base - ha}
-                width={bar}
-                height={ha}
-                fill={colors.success}
-                rx={2}
-              />,
-              <Rect
-                key={`u${i}`}
-                x={cx + 1}
-                y={base - hu}
-                width={bar}
-                height={hu}
-                fill={colors.accent}
-                rx={2}
-              />,
-              <SvgText
-                key={`l${i}`}
-                x={cx}
-                y={h - 4}
-                fontSize="10"
-                fontFamily={LABEL_FONT}
-                fill={colors.muted}
-                textAnchor="middle"
-              >
-                {fitLabel(d.name, slot)}
-              </SvgText>,
-            ];
-          })}
-        </Svg>
-      ) : (
-        <View style={{ height: h }} />
-      )}
+      {data.map((d) => (
+        <View key={d.id || d.name}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+            <Text
+              style={{ color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 }}
+              numberOfLines={1}
+              onPress={onPressItem ? () => onPressItem(d) : undefined}
+            >
+              {d.name}
+            </Text>
+            <Text style={{ color: colors.muted, fontSize: 13 }}>
+              <Text style={{ color: colors.success, fontWeight: '700' }}>{d.answered}</Text>
+              {' · '}
+              <Text style={{ color: colors.accent, fontWeight: '700' }}>{d.unanswered}</Text>
+            </Text>
+          </View>
+          <View
+            style={{
+              flexDirection: 'row',
+              height: 10,
+              borderRadius: 5,
+              overflow: 'hidden',
+              backgroundColor: colors.border,
+              marginTop: 5,
+            }}
+          >
+            <View
+              style={{ width: `${(d.answered / max) * 100}%`, backgroundColor: colors.success }}
+            />
+            <View
+              style={{ width: `${(d.unanswered / max) * 100}%`, backgroundColor: colors.accent }}
+            />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }

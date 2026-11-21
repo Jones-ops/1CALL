@@ -6,8 +6,10 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { formatDuration } from '@1call/shared';
 import { api } from '../api/client';
 import { Button, T } from './ui';
+import { useI18n } from '../i18n';
 
 export default function AudioPlayer({ uri, recordingId, label = 'Play' }) {
+  const { t } = useI18n();
   const [error, setError] = useState(null);
   const loaded = useRef(null);
   const player = useAudioPlayer(null);
@@ -37,18 +39,18 @@ export default function AudioPlayer({ uri, recordingId, label = 'Play' }) {
       }
       player.play();
     } catch (e) {
-      setError(e.message || 'Could not play this recording.');
+      setError(e.message || t('audio.error'));
     }
   }
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Button
-        title={status.playing ? 'Pause' : label}
+        title={status.playing ? t('audio.pause') : label}
         icon={status.playing ? 'pause' : 'play'}
         variant="secondary"
         onPress={toggle}
-        accessibilityLabel={status.playing ? 'Pause playback' : `${label} recording`}
+        accessibilityLabel={status.playing ? t('audio.pauseA11y') : t('audio.playA11y', { label })}
       />
       {status.duration ? (
         <T tone="muted" style={{ fontSize: 13 }}>

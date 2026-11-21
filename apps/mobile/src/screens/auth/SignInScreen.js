@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { api, errorMessage } from '../../api/client';
+import { useI18n } from '../../i18n';
 import { Button, ErrorText, Field, T } from '../../components/ui';
 import { useTheme, MIN_TOUCH } from '../../theme';
 import AuthLayout from './AuthLayout';
@@ -22,6 +23,7 @@ export function TextLink({ title, onPress }) {
 
 export default function SignInScreen({ navigation }) {
   const { signIn } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -56,11 +58,11 @@ export default function SignInScreen({ navigation }) {
           body: { token: r.devVerifyToken },
           auth: false,
         });
-        setInfo('Your email is verified. Sign in again.');
+        setInfo(t('auth.verifiedSignIn'));
         setUnverified(false);
         setError(null);
       } else {
-        setInfo(r.message);
+        setInfo(t('auth.linkSent'));
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -68,9 +70,9 @@ export default function SignInScreen({ navigation }) {
   }
 
   return (
-    <AuthLayout title="Welcome back" sub="One Message. Thousands of Calls.">
+    <AuthLayout title={t('auth.welcome')} sub={t('auth.tagline')}>
       <Field
-        label="Email"
+        label={t('auth.email')}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -80,7 +82,7 @@ export default function SignInScreen({ navigation }) {
         testID="signin-email"
       />
       <Field
-        label="Password"
+        label={t('auth.password')}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -97,14 +99,14 @@ export default function SignInScreen({ navigation }) {
       ) : null}
       {unverified ? (
         <Button
-          title="Resend verification email"
+          title={t('auth.resend')}
           variant="secondary"
           onPress={resend}
           style={{ marginBottom: 8 }}
         />
       ) : null}
       <Button
-        title="Sign in"
+        title={t('auth.signIn')}
         onPress={submit}
         loading={busy}
         disabled={!email || !password}
@@ -119,8 +121,8 @@ export default function SignInScreen({ navigation }) {
           marginTop: 8,
         }}
       >
-        <TextLink title="Create an account" onPress={() => navigation.navigate('SignUp')} />
-        <TextLink title="Forgot password?" onPress={() => navigation.navigate('ForgotPassword')} />
+        <TextLink title={t('auth.createAccount')} onPress={() => navigation.navigate('SignUp')} />
+        <TextLink title={t('auth.forgot')} onPress={() => navigation.navigate('ForgotPassword')} />
       </View>
     </AuthLayout>
   );

@@ -48,13 +48,14 @@ test('walks the 4 steps and launches only after both declarations', async () => 
   mockApi();
   await renderScreen(CampaignWizardScreen, { extraScreens: { CampaignLive: () => null } });
 
-  expect(screen.getByText('1. Recipients')).toBeTruthy();
+  expect(screen.getByText(/Step 1 of 4/)).toBeTruthy();
   expect(isDisabled(screen.getByTestId('wizard-next'))).toBe(true);
 
   await choose('wizard-group', 'g1');
-  expect(await screen.findByTestId('recipient-summary')).toHaveTextContent(
-    /40 contacts · 3 opted out and will be skipped · 37 will be called/,
-  );
+  const summary = await screen.findByTestId('recipient-summary');
+  expect(summary).toHaveTextContent(/37/);
+  expect(summary).toHaveTextContent(/40 contacts in this group/);
+  expect(summary).toHaveTextContent(/3 opted out — will be skipped/);
   await waitFor(() => expect(isDisabled(screen.getByTestId('wizard-next'))).toBe(false));
   await fireEvent.press(screen.getByTestId('wizard-next'));
 
@@ -119,6 +120,8 @@ test('Next is disabled when everyone in the group opted out', async () => {
   mockApi(estimate({ total: 3, optedOut: 3, recipients: 0 }));
   await renderScreen(CampaignWizardScreen);
   await choose('wizard-group', 'g1');
-  expect(await screen.findByTestId('recipient-summary')).toHaveTextContent(/0 will be called/);
+  expect(await screen.findByTestId('recipient-summary')).toHaveTextContent(
+    /0will be called|0 will be called/,
+  );
   expect(isDisabled(screen.getByTestId('wizard-next'))).toBe(true);
 });

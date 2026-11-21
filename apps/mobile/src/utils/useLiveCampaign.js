@@ -9,6 +9,7 @@ const FINAL = ['completed', 'cancelled', 'rejected'];
 
 export function useLiveCampaign(id) {
   const [campaign, setCampaign] = useState(null);
+  const [retry, setRetry] = useState(null); // { waiting, nextAt }
   const [error, setError] = useState(null);
   const [live, setLive] = useState(false);
   const socketRef = useRef(null);
@@ -17,6 +18,7 @@ export function useLiveCampaign(id) {
     try {
       const r = await api(`/campaigns/${id}`);
       setCampaign(r.campaign);
+      setRetry(r.retry ?? null);
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -54,5 +56,5 @@ export function useLiveCampaign(id) {
     return () => clearInterval(t);
   }, [live, finished, fetchOnce]);
 
-  return { campaign, setCampaign, error, live, reload: fetchOnce };
+  return { campaign, setCampaign, retry, error, live, reload: fetchOnce };
 }

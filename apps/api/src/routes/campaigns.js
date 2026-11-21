@@ -72,7 +72,17 @@ async function own(req) {
 }
 
 router.get('/:id', async (req, res) => {
-  res.json({ campaign: serializeCampaign(await own(req)) });
+  const c = await own(req);
+  // Unanswered/busy numbers waiting for their one retry (~30 min later).
+  const retry = await prisma.callAttempt.aggregate({
+    where: { campaignId: c.id, status: 'queued', attemptNo: { gt: 1 } },
+    _count: { _all: true },
+    _min: { notBefore: true },
+  });
+  res.json({
+    campaign: serializeCampaign(c),
+    retry: { waiting: retry._count._all, nextAt: retry._min.notBefore },
+  });
 });
 
 router.get(

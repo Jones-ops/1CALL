@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { api, errorMessage } from '../../api/client';
+import { useI18n } from '../../i18n';
 import { Button, ErrorText, Field, T } from '../../components/ui';
 import AuthLayout from './AuthLayout';
 import { TextLink } from './SignInScreen';
 
 export default function ForgotPasswordScreen({ navigation }) {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [token, setToken] = useState('');
@@ -22,7 +24,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         body: { email: email.trim() },
         auth: false,
       });
-      if (r.devResetToken) setToken(r.devResetToken); // mock mode only
+      if (r.devResetToken) setToken(r.devResetToken); // local development only
       setSent(true);
     } catch (e) {
       setError(errorMessage(e));
@@ -50,25 +52,21 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   if (done) {
     return (
-      <AuthLayout title="Password changed" sub="You can now sign in with your new password.">
-        <Button title="Sign in" onPress={() => navigation.navigate('SignIn')} />
+      <AuthLayout title={t('auth.pwChanged')} sub={t('auth.pwChangedSub')}>
+        <Button title={t('auth.signIn')} onPress={() => navigation.navigate('SignIn')} />
       </AuthLayout>
     );
   }
 
   return (
     <AuthLayout
-      title="Reset password"
-      sub={
-        sent
-          ? 'Enter the code from the email and choose a new password.'
-          : 'We will email you a reset code.'
-      }
+      title={t('auth.resetTitle')}
+      sub={sent ? t('auth.resetSubSent') : t('auth.resetSub')}
     >
       {!sent ? (
         <>
           <Field
-            label="Email"
+            label={t('auth.email')}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -76,7 +74,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           />
           <ErrorText>{error}</ErrorText>
           <Button
-            title="Send reset code"
+            title={t('auth.sendCode')}
             onPress={request}
             loading={busy}
             disabled={!email}
@@ -86,17 +84,17 @@ export default function ForgotPasswordScreen({ navigation }) {
       ) : (
         <>
           <T tone="muted" style={{ fontSize: 13 }}>
-            If an account exists for {email.trim()}, a code is on its way.
+            {t('auth.codeOnWay', { email: email.trim() })}
           </T>
           <Field
-            label="Reset code"
+            label={t('auth.resetCode')}
             value={token}
             onChangeText={setToken}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Field
-            label="New password (at least 8 characters)"
+            label={t('auth.newPassword')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -104,7 +102,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           />
           <ErrorText>{error}</ErrorText>
           <Button
-            title="Change password"
+            title={t('auth.changePassword')}
             onPress={reset}
             loading={busy}
             disabled={!token || password.length < 8}
@@ -112,7 +110,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           />
         </>
       )}
-      <TextLink title="Back to sign in" onPress={() => navigation.navigate('SignIn')} />
+      <TextLink title={t('auth.backToSignIn')} onPress={() => navigation.navigate('SignIn')} />
     </AuthLayout>
   );
 }

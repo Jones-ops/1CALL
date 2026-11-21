@@ -12,6 +12,8 @@ import SignUpScreen from '../screens/auth/SignUpScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import ContactsScreen from '../screens/ContactsScreen';
+import ImportContactsScreen from '../screens/ImportContactsScreen';
+import { useI18n } from '../i18n';
 import RecordScreen from '../screens/RecordScreen';
 import CampaignListScreen from '../screens/campaigns/CampaignListScreen';
 import CampaignWizardScreen from '../screens/campaigns/CampaignWizardScreen';
@@ -25,6 +27,15 @@ import AdminScreen from '../screens/admin/AdminScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const noHeader = { headerShown: false };
+
+function ContactsStack() {
+  return (
+    <Stack.Navigator screenOptions={noHeader}>
+      <Stack.Screen name="ContactsHome" component={ContactsScreen} />
+      <Stack.Screen name="ImportContacts" component={ImportContactsScreen} />
+    </Stack.Navigator>
+  );
+}
 
 function CampaignsStack() {
   return (
@@ -58,6 +69,7 @@ const ICONS = {
 
 function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -85,19 +97,27 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Contacts" component={ContactsScreen} />
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{ title: t('tab.dashboard') }}
+      />
+      <Tab.Screen
+        name="Contacts"
+        component={ContactsStack}
+        options={{ title: t('tab.contacts') }}
+      />
       <Tab.Screen
         name="Record"
         component={RecordScreen}
-        options={{ title: 'Record', tabBarAccessibilityLabel: 'Record voice' }}
+        options={{ title: t('tab.record'), tabBarAccessibilityLabel: t('tab.recordA11y') }}
       />
       <Tab.Screen
         name="Campaigns"
         component={CampaignsStack}
-        options={{ tabBarAccessibilityLabel: 'Voice campaigns' }}
+        options={{ title: t('tab.campaigns'), tabBarAccessibilityLabel: t('tab.campaignsA11y') }}
       />
-      <Tab.Screen name="Account" component={AccountStack} />
+      <Tab.Screen name="Account" component={AccountStack} options={{ title: t('tab.account') }} />
     </Tab.Navigator>
   );
 }

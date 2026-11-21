@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { APPROVAL_CATEGORIES, CAMPAIGN_CATEGORIES } from '@1call/shared';
 import { api, errorMessage } from '../../api/client';
 import { useApiData } from '../../utils/useApiData';
+import { useI18n } from '../../i18n';
 import AudioPlayer from '../../components/AudioPlayer';
 import {
   Button,
@@ -20,9 +21,8 @@ import {
   Steps,
   T,
 } from '../../components/ui';
-import { useTheme, MIN_TOUCH } from '../../theme';
+import { MIN_TOUCH, radius, useTheme } from '../../theme';
 
-const STEPS = ['Recipients', 'Message', 'Details', 'Review'];
 const n = (v) => Number(v ?? 0).toLocaleString('en-US');
 
 function defaultSchedule() {
@@ -31,8 +31,52 @@ function defaultSchedule() {
   return d;
 }
 
+/** Visual summary of who will be called. */
+function RecipientCard({ est }) {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  return (
+    <View
+      testID="recipient-summary"
+      accessible
+      accessibilityLabel={t('wizard.recipientsA11y', {
+        total: est.total,
+        skipped: est.optedOut,
+        called: est.recipients,
+      })}
+      style={{
+        marginTop: 14,
+        borderRadius: radius.card,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+      }}
+    >
+      <View style={{ alignItems: 'center', minWidth: 84 }}>
+        <Text style={{ fontSize: 34, fontWeight: '800', color: colors.success }}>
+          {n(est.recipients)}
+        </Text>
+        <T tone="muted" style={{ fontSize: 13 }}>
+          {t('wizard.willBeCalled')}
+        </T>
+      </View>
+      <View style={{ flex: 1, gap: 4 }}>
+        <T style={{ fontSize: 14 }}>{t('wizard.inGroup', { n: n(est.total) })}</T>
+        <T tone={est.optedOut ? 'warning' : 'muted'} style={{ fontSize: 14 }}>
+          {t('wizard.skipped', { n: n(est.optedOut) })}
+        </T>
+      </View>
+    </View>
+  );
+}
+
 export default function CampaignWizardScreen({ navigation, route }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
+  const STEPS = [t('wizard.s1'), t('wizard.s2'), t('wizard.s3'), t('wizard.s4')];
   const groups = useApiData('/groups');
   const recordings = useApiData('/recordings');
   const [step, setStep] = useState(1);
@@ -131,17 +175,45 @@ export default function CampaignWizardScreen({ navigation, route }) {
     }
   }
 
+  // Back / Next (or START on the last step) stay pinned to the bottom.
+  const footer = (
+    <>
+      {step > 1 ? (
+        <Button title={t('common.back')} variant="secondary" onPress={() => setStep(step - 1)} />
+      ) : null}
+      {step < 4 ? (
+        <Button
+          title={t('common.next')}
+          icon="arrow-forward"
+          onPress={() => setStep(step + 1)}
+          disabled={!canNext}
+          style={{ flex: 1 }}
+          testID="wizard-next"
+        />
+      ) : (
+        <Button
+          title={t('wizard.start')}
+          variant="accent"
+          disabled={!canLaunch}
+          onPress={() => setConfirmOpen(true)}
+          style={{ flex: 1 }}
+          testID="wizard-start"
+        />
+      )}
+    </>
+  );
+
   return (
-    <Screen title="Voice Campaigns" sub="Set up a broadcast in four steps." back testID="wizard">
+    <Screen title={t('wizard.title')} back footer={footer} testID="wizard">
       <Steps steps={STEPS} current={step} />
       <Card>
         {step === 1 ? (
           <View testID="step-recipients">
             <Select
-              label="Contact group"
+              label={t('wizard.group')}
               value={groupId}
               onChange={setGroupId}
-              placeholder="Select a group"
+              placeholder={t('wizard.groupPh')}
               options={(groups.data?.items ?? []).map((g) => ({
                 value: g.id,
                 label: `${g.name} (${g.count})`,
@@ -150,33 +222,27 @@ export default function CampaignWizardScreen({ navigation, route }) {
             />
             {groups.data?.items.length === 0 ? (
               <T tone="muted" style={{ marginTop: 8 }}>
-                You have no contacts yet. Import some on the Contacts tab.
+                {t('wizard.noGroups')}
               </T>
             ) : null}
             <ErrorText>{estError}</ErrorText>
-            {groupId && est ? (
-              <T style={{ marginTop: 12 }} testID="recipient-summary">
-                {n(est.total)} contacts ·{' '}
-                <T tone="warning">{n(est.optedOut)} opted out and will be skipped</T> ·{' '}
-                <T bold>{n(est.recipients)}</T> will be called
-              </T>
-            ) : null}
+            {groupId && est ? <RecipientCard est={est} /> : null}
           </View>
         ) : null}
 
         {step === 2 ? (
           <View>
             <Select
-              label="Voice recording"
+              label={t('wizard.recording')}
               value={recordingId}
               onChange={setRecordingId}
-              placeholder="Select a recording"
+              placeholder={t('wizard.recordingPh')}
               options={(recordings.data?.items ?? []).map((r) => ({ value: r.id, label: r.name }))}
               testID="wizard-recording"
             />
             {recording ? (
               <View style={{ marginTop: 10 }}>
-                <AudioPlayer recordingId={recording.id} label="Preview" />
+                <AudioPlayer recordingId={recording.id} label={t('wizard.preview')} />
               </View>
             ) : null}
             <Pressable
@@ -185,8 +251,8 @@ export default function CampaignWizardScreen({ navigation, route }) {
               style={{ minHeight: MIN_TOUCH, justifyContent: 'center', marginTop: 8 }}
             >
               <T tone="muted">
-                No recording yet? Use{' '}
-                <T style={{ color: colors.primary, fontWeight: '600' }}>Record Voice</T>.
+                {t('wizard.noRecording')}{' '}
+                <T style={{ color: colors.primary, fontWeight: '600' }}>{t('wizard.recordLink')}</T>
               </T>
             </Pressable>
           </View>
@@ -195,32 +261,31 @@ export default function CampaignWizardScreen({ navigation, route }) {
         {step === 3 ? (
           <View>
             <Field
-              label="Campaign name"
+              label={t('wizard.name')}
               value={name}
               onChangeText={setName}
-              placeholder="e.g. December announcement"
+              placeholder={t('wizard.namePh')}
               testID="wizard-name"
             />
             <Select
-              label="Type of campaign"
+              label={t('wizard.type')}
               value={category}
               onChange={setCategory}
-              options={CAMPAIGN_CATEGORIES.map((c) => ({ value: c, label: c }))}
+              options={CAMPAIGN_CATEGORIES.map((c) => ({ value: c, label: t(`category.${c}`) }))}
               testID="wizard-category"
             />
             {needsApproval ? (
               <T tone="warning" style={{ marginTop: 8 }} testID="approval-warning">
-                Promotional and political campaigns need account verification and admin approval
-                before any calls are made.
+                {t('wizard.approvalWarning')}
               </T>
             ) : null}
             <Select
-              label="When"
+              label={t('wizard.when')}
               value={when}
               onChange={setWhen}
               options={[
-                { value: 'now', label: 'Start immediately' },
-                { value: 'later', label: 'Schedule for later' },
+                { value: 'now', label: t('wizard.now') },
+                { value: 'later', label: t('wizard.later') },
               ]}
             />
             {when === 'later' ? (
@@ -242,14 +307,9 @@ export default function CampaignWizardScreen({ navigation, route }) {
                 />
               )
             ) : null}
-            <Checkbox
-              checked={optOut}
-              onChange={setOptOut}
-              label="Offer “press 9 to stop receiving calls” after the message"
-            />
+            <Checkbox checked={optOut} onChange={setOptOut} label={t('wizard.optOut')} />
             <T tone="muted" style={{ fontSize: 14 }}>
-              Calls are placed between 08:00 and 19:00 East Africa Time. Unanswered calls are
-              retried once.
+              {t('wizard.hours')}
             </T>
           </View>
         ) : null}
@@ -258,89 +318,78 @@ export default function CampaignWizardScreen({ navigation, route }) {
           <View testID="step-review">
             <KV
               rows={[
-                ['Campaign', name.trim() || 'Untitled'],
-                ['Recording', recording?.name || '—'],
-                ['Recipients', n(recipients)],
-                ['Estimated credits (maximum)', n(est?.estimatedCredits)],
-                ['Available credits', n(est?.available), est?.sufficient ? 'success' : 'danger'],
+                [t('wizard.rvCampaign'), name.trim() || '—'],
+                [t('wizard.rvRecording'), recording?.name || '—'],
+                [t('wizard.rvRecipients'), n(recipients)],
+                [t('wizard.rvCredits'), n(est?.estimatedCredits)],
                 [
-                  'Starts',
+                  t('wizard.rvAvailable'),
+                  n(est?.available),
+                  est?.sufficient ? 'success' : 'danger',
+                ],
+                [
+                  t('wizard.rvStarts'),
                   when === 'later'
                     ? scheduledAt.toLocaleString()
                     : needsApproval
-                      ? 'After admin approval'
-                      : 'Immediately',
+                      ? t('wizard.afterApproval')
+                      : t('wizard.immediately'),
                 ],
-                ['Restrictions', `Opt-out ${optOut ? 'on' : 'off'} · 08:00–19:00 · max 2 attempts`],
+                [
+                  t('wizard.rvRestrictions'),
+                  t(optOut ? 'wizard.restrictionsOn' : 'wizard.restrictionsOff'),
+                ],
               ]}
             />
-            <T tone="muted" style={{ marginVertical: 12, fontSize: 14 }}>
-              1 credit is charged per answered call of up to 30 seconds. Unanswered, busy and failed
-              calls are not charged.
+            <T tone="muted" style={{ marginTop: 12, fontSize: 14 }}>
+              {t('wizard.billingNote')}
             </T>
-            {!est?.subscriptionActive ? (
-              <ErrorText>
-                You need an active plan. Choose one under Account › Subscription.
-              </ErrorText>
-            ) : null}
+            {!est?.subscriptionActive ? <ErrorText>{t('wizard.errNoPlan')}</ErrorText> : null}
             {est?.overPlanLimit ? (
-              <ErrorText>{`Your ${est.planName} plan allows up to ${n(est.maxRecipients)} recipients per campaign.`}</ErrorText>
-            ) : null}
-            {est && !est.sufficient ? (
               <ErrorText>
-                Not enough credits for this campaign. Top up under Account › Subscription.
+                {t('wizard.errPlanLimit', { plan: est.planName, n: n(est.maxRecipients) })}
               </ErrorText>
             ) : null}
-            {!name.trim() ? <ErrorText>Give the campaign a name.</ErrorText> : null}
-            <Button
-              title="START VOICE BROADCAST"
-              variant="accent"
-              big
-              disabled={!canLaunch}
-              onPress={() => setConfirmOpen(true)}
-              testID="wizard-start"
-            />
+            {est && !est.sufficient ? <ErrorText>{t('wizard.errCredits')}</ErrorText> : null}
           </View>
         ) : null}
-
-        <Row style={{ marginTop: 14 }}>
-          {step > 1 ? (
-            <Button title="Back" variant="secondary" onPress={() => setStep(step - 1)} />
-          ) : null}
-          {step < 4 ? (
-            <Button
-              title="Next"
-              onPress={() => setStep(step + 1)}
-              disabled={!canNext}
-              testID="wizard-next"
-            />
-          ) : null}
-        </Row>
       </Card>
 
-      <Sheet visible={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm broadcast">
+      <Sheet
+        visible={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title={t('wizard.confirmTitle')}
+      >
         <T bold>{name.trim()}</T>
         <T style={{ marginBottom: 6 }}>
-          {n(recipients)} recipients · message “{recording?.name}”{'\n'}Up to{' '}
-          {n(est?.estimatedCredits)} credits (you have {n(est?.available)})
+          {t('wizard.confirmSummary', {
+            n: n(recipients),
+            rec: recording?.name ?? '',
+            credits: n(est?.estimatedCredits),
+            available: n(est?.available),
+          })}
         </T>
         <Checkbox
           checked={decl1}
           onChange={setDecl1}
           testID="decl-consent"
-          label="These contacts agreed to receive these calls and I have the right to contact them."
+          label={t('wizard.decl1')}
         />
         <Checkbox
           checked={decl2}
           onChange={setDecl2}
           testID="decl-lawful"
-          label="My message names who is calling and is lawful, truthful and not harassing."
+          label={t('wizard.decl2')}
         />
         <ErrorText>{launchError}</ErrorText>
         <Row style={{ marginTop: 10 }}>
-          <Button title="Cancel" variant="secondary" onPress={() => setConfirmOpen(false)} />
           <Button
-            title="START VOICE BROADCAST"
+            title={t('common.cancel')}
+            variant="secondary"
+            onPress={() => setConfirmOpen(false)}
+          />
+          <Button
+            title={t('wizard.start')}
             variant="accent"
             disabled={!decl1 || !decl2}
             loading={launching}
@@ -349,9 +398,7 @@ export default function CampaignWizardScreen({ navigation, route }) {
             testID="confirm-launch"
           />
         </Row>
-        <Label>
-          {needsApproval ? 'This campaign will wait for admin approval before calling.' : ''}
-        </Label>
+        {needsApproval ? <Label>{t('wizard.waitApproval')}</Label> : null}
       </Sheet>
     </Screen>
   );

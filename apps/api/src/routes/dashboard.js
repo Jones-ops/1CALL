@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ACTIVE_CAMPAIGN_STATUSES } from '@1call/shared';
 import { prisma, creditBalance, activeSubscription } from '../db.js';
+import { serializeCampaign } from '../engine/serialize.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -8,7 +9,18 @@ router.use(requireAuth);
 
 router.get('/', async (req, res) => {
   const orgId = req.user.orgId;
-  const [balance, sub, contacts, totals, completed, active, history] = await Promise.all([
+  const [
+    balance,
+    sub,
+    contacts,
+    totals,
+    completed,
+    active,
+    history,
+    recordings,
+    campaignsTotal,
+    live,
+  ] = await Promise.all([
     creditBalance(orgId),
     activeSubscription(orgId),
     prisma.contact.count({ where: { orgId } }),
@@ -33,6 +45,13 @@ router.get('/', async (req, res) => {
         createdAt: true,
       },
     }),
+    prisma.recording.count({ where: { orgId, deletedAt: null } }),
+    prisma.campaign.count({ where: { orgId } }),
+    // The campaign to feature as "Live now" on the dashboard.
+    prisma.campaign.findFirst({
+      where: { orgId, status: { in: ACTIVE_CAMPAIGN_STATUSES } },
+      orderBy: { createdAt: 'desc' },
+    }),
   ]);
   const s = totals._sum;
   res.json({
@@ -48,7 +67,10 @@ router.get('/', async (req, res) => {
       failed: s.failed ?? 0,
       completedCampaigns: completed,
       activeCampaigns: active,
+      recordings,
+      campaignsTotal,
     },
+    live: live ? serializeCampaign(live) : null,
     subscription: sub ? { planName: sub.plan.name, expiresAt: sub.expiresAt } : null,
     history: history.reverse().map((c) => ({
       id: c.id,

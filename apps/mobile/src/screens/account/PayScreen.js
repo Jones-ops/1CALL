@@ -1,12 +1,15 @@
 // Pay with M-Pesa STK Push. The app never decides that a payment succeeded:
 // it only polls the server, which activates the plan from the verified
-// Safaricom callback (or the server-side mock callback in mock mode).
+// Safaricom callback (or the server-side test callback while M-Pesa is not live).
 import { useEffect, useRef, useState } from 'react';
-import { goTo } from '../../utils/goTo';
 import { ActivityIndicator, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { formatKes, isKenyanMobile } from '@1call/shared';
 import { api, errorMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { goTo } from '../../utils/goTo';
+import { useI18n } from '../../i18n';
+import { useToast } from '../../components/Toast';
 import { Button, Card, ErrorText, Field, H2, Row, Screen, T } from '../../components/ui';
 import { useTheme } from '../../theme';
 
@@ -16,6 +19,8 @@ const TIMEOUT_MS = 2 * 60_000;
 export default function PayScreen({ route, navigation }) {
   const plan = route.params?.plan;
   const { colors } = useTheme();
+  const { t } = useI18n();
+  const toast = useToast();
   const { user, appConfig } = useAuth();
   const [phone, setPhone] = useState(user?.phone ? user.phone.replace(/^\+254/, '0') : '');
   const [payment, setPayment] = useState(null);
@@ -28,7 +33,7 @@ export default function PayScreen({ route, navigation }) {
 
   useEffect(() => {
     if (phase !== 'waiting' || !payment) return undefined;
-    const t = setInterval(async () => {
+    const tm = setInterval(async () => {
       if (Date.now() - started.current > TIMEOUT_MS) {
         setPhase('timeout');
         return;
@@ -41,8 +46,15 @@ export default function PayScreen({ route, navigation }) {
         /* keep polling */
       }
     }, POLL_MS);
-    return () => clearInterval(t);
+    return () => clearInterval(tm);
   }, [phase, payment]);
+
+  // Toast once the server confirms.
+  useEffect(() => {
+    if (phase === 'succeeded') toast.show(t('pay.toastPaid', { plan: plan?.name }));
+    if (phase === 'failed') toast.show(t('pay.toastFailed'), 'danger');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   async function pay() {
     setBusy(true);
@@ -78,11 +90,11 @@ export default function PayScreen({ route, navigation }) {
 
   if (!plan) {
     return (
-      <Screen title="Payments" back>
+      <Screen title={t('pay.title')} back>
         <Card>
-          <T>No plan selected.</T>
+          <T>{t('pay.noPlan')}</T>
           <Button
-            title="Choose a plan"
+            title={t('pay.choosePlan')}
             onPress={() => goTo(navigation, 'Subscription')}
             style={{ marginTop: 10 }}
           />
@@ -92,36 +104,31 @@ export default function PayScreen({ route, navigation }) {
   }
 
   return (
-    <Screen
-      title="Payments"
-      sub="Pay with M-Pesa (Lipa Na M-Pesa Online)."
-      back
-      testID="pay-screen"
-    >
+    <Screen title={t('pay.title')} sub={t('pay.sub')} back testID="pay-screen">
       <Card>
         <H2>
-          {plan.name} plan · {formatKes(plan.priceKes)}
+          {plan.name} · {formatKes(plan.priceKes)}
         </H2>
         <T tone="muted" style={{ fontSize: 14 }}>
-          {plan.credits.toLocaleString()} credits · valid {plan.days} days
+          {t('pay.planDetails', { credits: plan.credits.toLocaleString(), days: plan.days })}
         </T>
 
         {phase === 'form' ? (
           <>
             <Field
-              label="M-Pesa phone number"
+              label={t('pay.phone')}
               value={phone}
               onChangeText={setPhone}
               keyboardType="number-pad"
               inputMode="numeric"
               placeholder="0712 345 678"
               autoComplete="tel"
-              error={phone && !phoneValid ? 'Enter a Safaricom number like 0712 345 678' : null}
+              error={phone && !phoneValid ? t('pay.phoneError') : null}
               testID="mpesa-phone"
             />
             <ErrorText>{error}</ErrorText>
             <Button
-              title={`PAY ${formatKes(plan.priceKes)}`}
+              title={t('pay.payButton', { amount: formatKes(plan.priceKes) })}
               variant="accent"
               onPress={pay}
               disabled={!phoneValid}
@@ -130,34 +137,42 @@ export default function PayScreen({ route, navigation }) {
               testID="pay-button"
             />
             <T tone="muted" style={{ fontSize: 13, marginTop: 8 }}>
-              You will get a prompt on your phone to enter your M-Pesa PIN.
+              {t('pay.pinHint')}
             </T>
           </>
         ) : null}
 
         {phase === 'waiting' ? (
           <View testID="check-phone" style={{ marginTop: 14 }}>
-            <H2>Check your phone</H2>
-            <T>
-              Enter your M-Pesa PIN on {payment?.phone} to pay {formatKes(plan.priceKes)}. Your plan
-              activates as soon as Safaricom confirms the payment.
+            <View style={{ alignItems: 'center', marginBottom: 8 }}>
+              <Ionicons name="phone-portrait-outline" size={44} color={colors.primary} />
+            </View>
+            <H2 style={{ textAlign: 'center' }}>{t('pay.checkPhone')}</H2>
+            <T style={{ textAlign: 'center' }}>
+              {t('pay.enterPin', { phone: payment?.phone, amount: formatKes(plan.priceKes) })}
             </T>
             <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 12 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginVertical: 14,
+              }}
             >
               <ActivityIndicator color={colors.primary} />
-              <T tone="muted">Waiting for M-Pesa confirmation…</T>
+              <T tone="muted">{t('pay.waiting')}</T>
             </View>
             {appConfig?.mockPayments ? (
-              <Row>
+              <Row style={{ justifyContent: 'center' }}>
                 <Button
-                  title="Complete test payment"
+                  title={t('pay.testComplete')}
                   onPress={() => mock('complete')}
                   disabled={busy}
                   testID="mock-pin"
                 />
                 <Button
-                  title="Cancel test payment"
+                  title={t('pay.testCancel')}
                   variant="secondary"
                   onPress={() => mock('cancel')}
                   disabled={busy}
@@ -170,16 +185,20 @@ export default function PayScreen({ route, navigation }) {
         ) : null}
 
         {phase === 'succeeded' ? (
-          <View style={{ marginTop: 14 }} testID="pay-success">
-            <H2 style={{ color: colors.success }}>Payment received</H2>
-            <T>
-              M-Pesa receipt {payment?.mpesaReceipt}. Your {plan.name} plan is active and{' '}
-              {plan.credits.toLocaleString()} credits were added.
+          <View style={{ marginTop: 14, alignItems: 'center' }} testID="pay-success">
+            <Ionicons name="checkmark-circle" size={56} color={colors.success} />
+            <H2 style={{ color: colors.success, marginTop: 6 }}>{t('pay.received')}</H2>
+            <T style={{ textAlign: 'center' }}>
+              {t('pay.receivedText', {
+                receipt: payment?.mpesaReceipt,
+                plan: plan.name,
+                credits: plan.credits.toLocaleString(),
+              })}
             </T>
             <Button
-              title="Back to subscription"
+              title={t('pay.backToSub')}
               onPress={() => goTo(navigation, 'Subscription')}
-              style={{ marginTop: 12 }}
+              style={{ marginTop: 14, alignSelf: 'stretch' }}
             />
           </View>
         ) : null}
@@ -187,24 +206,23 @@ export default function PayScreen({ route, navigation }) {
         {phase === 'failed' || phase === 'timeout' ? (
           <View style={{ marginTop: 14 }} testID="pay-failed">
             <H2 style={{ color: phase === 'failed' ? colors.danger : colors.warning }}>
-              {phase === 'failed' ? 'Payment not completed' : 'Still waiting for M-Pesa'}
+              {phase === 'failed' ? t('pay.notCompleted') : t('pay.stillWaiting')}
             </H2>
             <T>
               {phase === 'failed'
-                ? payment?.resultDesc ||
-                  'The payment was cancelled or failed. You were not charged.'
-                : 'We have not heard back from M-Pesa yet. If you entered your PIN, your plan will activate automatically — check Payments shortly.'}
+                ? payment?.resultDesc || t('pay.failedText')
+                : t('pay.timeoutText')}
             </T>
             <Row style={{ marginTop: 12 }}>
               <Button
-                title="Try again"
+                title={t('pay.tryAgain')}
                 onPress={() => {
                   setPhase('form');
                   setPayment(null);
                 }}
               />
               <Button
-                title="Payment history"
+                title={t('pay.history')}
                 variant="secondary"
                 onPress={() => goTo(navigation, 'Payments')}
               />

@@ -1,295 +1,73 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import * as DocumentPicker from 'expo-document-picker';
-import * as Contacts from 'expo-contacts';
-import {
-  CONSENT_SOURCES,
-  CONSENT_SOURCE_LABELS,
-  DEFAULT_GROUP_NAME,
-  classifyRows,
-  parseImportText,
-} from '@1call/shared';
 import { api, errorMessage } from '../api/client';
-import { appendFile } from '../utils/filePart';
+import { useI18n } from '../i18n';
+import { useToast } from '../components/Toast';
 import {
+  ActionMenu,
+  Avatar,
   Button,
-  Card,
-  Checkbox,
+  ConfirmSheet,
+  EmptyState,
   ErrorText,
   Field,
-  H2,
-  Loading,
-  Row,
+  IconButton,
   Screen,
   ScreenHeader,
-  Select,
+  SegmentedTabs,
+  Skeleton,
   T,
   Tag,
 } from '../components/ui';
 import { useTheme } from '../theme';
 
-const STATUS = {
-  valid: ['Valid', 'success'],
-  duplicate: ['Duplicate', 'warning'],
-  invalid: ['Invalid', 'danger'],
-};
+export { ImportCard } from './ImportContactsScreen';
 
-/** Import card: paste / CSV-Excel file / phone contacts → server preview → commit. */
-export function ImportCard({ onImported }) {
+function ContactRow({ c, onMenu }) {
   const { colors } = useTheme();
-  const [text, setText] = useState('');
-  const [groupName, setGroupName] = useState(DEFAULT_GROUP_NAME);
-  const [file, setFile] = useState(null);
-  const [source, setSource] = useState('paste');
-  const [preview, setPreview] = useState(null);
-  const [consentSource, setConsentSource] = useState('web_form');
-  const [declared, setDeclared] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const [done, setDone] = useState(null);
-
-  // Instant client-side count (same normalisation rules as the server).
-  const quick = text.trim() ? classifyRows(parseImportText(text)).counts : null;
-
-  async function pickFile() {
-    setError(null);
-    const r = await DocumentPicker.getDocumentAsync({
-      type: [
-        'text/csv',
-        'text/comma-separated-values',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/plain',
-        '*/*',
-      ],
-      copyToCacheDirectory: true,
-    });
-    if (r.canceled || !r.assets?.[0]) return;
-    const a = r.assets[0];
-    if (!/\.(csv|xlsx|txt)$/i.test(a.name)) {
-      setError('Choose a .csv or .xlsx file.');
-      return;
-    }
-    setFile(a);
-    setSource('file');
-    setPreview(null);
-  }
-
-  async function pickPhoneContacts() {
-    setError(null);
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (status !== 'granted') {
-      setError('Contacts permission was denied. You can still paste numbers or choose a file.');
-      return;
-    }
-    const { data } = await Contacts.getContactsAsync({
-      fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
-    });
-    const lines = [];
-    data.forEach((c) =>
-      (c.phoneNumbers || []).forEach((p) =>
-        lines.push(`${(c.name || '').replace(/[,;\t]/g, ' ')},${p.number}`),
-      ),
-    );
-    if (!lines.length) {
-      setError('No phone numbers found in your contacts.');
-      return;
-    }
-    setText(lines.join('\n'));
-    setFile(null);
-    setSource('phone_contacts');
-    setPreview(null);
-  }
-
-  async function runPreview() {
-    setBusy(true);
-    setError(null);
-    setDone(null);
-    try {
-      let r;
-      if (file) {
-        const form = new FormData();
-        form.append('groupName', groupName);
-        await appendFile(form, 'file', { uri: file.uri, name: file.name, webFile: file.file });
-        r = await api('/contacts/import/preview', { method: 'POST', form });
-      } else {
-        r = await api('/contacts/import/preview', { method: 'POST', body: { text, groupName } });
-      }
-      setPreview(r);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function commit() {
-    setBusy(true);
-    setError(null);
-    try {
-      const rows = preview.rows
-        .filter((x) => x.status === 'valid')
-        .map((x) => ({ name: x.name, phone: x.phone }));
-      const r = await api('/contacts/import/commit', {
-        method: 'POST',
-        body: {
-          groupName: preview.groupName,
-          consentSource,
-          declarationAccepted: true,
-          source,
-          rows,
-        },
-      });
-      setDone(`${r.imported} contacts added to “${preview.groupName}”.`);
-      setPreview(null);
-      setText('');
-      setFile(null);
-      setDeclared(false);
-      onImported?.();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const valid = preview?.counts.valid ?? 0;
+  const { t } = useI18n();
   return (
-    <Card testID="import-card">
-      <H2>Import contacts</H2>
-      <Field
-        label="Paste numbers (one per line, optional “name,number”)"
-        value={text}
-        onChangeText={(v) => {
-          setText(v);
-          setFile(null);
-          if (source === 'file') setSource('paste');
-          setPreview(null);
-        }}
-        multiline
-        numberOfLines={4}
-        placeholder={'Jane Wanjiru,0712345678\n+254733111222\n0100123456'}
-        testID="import-text"
-        autoCapitalize="none"
-      />
-      {quick ? (
-        <T tone="muted" style={{ fontSize: 13, marginTop: 4 }}>
-          {quick.valid} look valid · {quick.invalid} invalid (checked again on preview)
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        backgroundColor: colors.card,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      }}
+    >
+      <Avatar name={c.name || c.phone} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <T bold numberOfLines={1}>
+          {c.name || t('contacts.noName')}
         </T>
-      ) : null}
-      <Row style={{ marginTop: 10 }}>
-        <Button
-          title={file ? `File: ${file.name}` : 'Choose CSV or Excel file'}
-          variant="secondary"
-          icon="document-text-outline"
-          onPress={pickFile}
-          style={{ flexGrow: 1 }}
-        />
-        <Button
-          title="From phone contacts"
-          variant="secondary"
-          icon="people-outline"
-          onPress={pickPhoneContacts}
-          style={{ flexGrow: 1 }}
-        />
-      </Row>
-      <Field
-        label="Group name"
-        value={groupName}
-        onChangeText={(v) => {
-          setGroupName(v);
-          setPreview(null);
-        }}
-        testID="import-group"
-      />
-      <Button
-        title="Preview import"
-        onPress={runPreview}
-        loading={busy && !preview}
-        disabled={!text.trim() && !file}
-        style={{ marginTop: 14, alignSelf: 'flex-start' }}
-        testID="import-preview"
-      />
-      <ErrorText>{error}</ErrorText>
-      {done ? (
-        <T tone="success" style={{ marginTop: 10 }}>
-          {done}
+        <T tone="muted" style={{ fontSize: 13 }} numberOfLines={1}>
+          {c.phone} · {c.groupName}
         </T>
-      ) : null}
-
-      {preview ? (
-        <View testID="import-preview-result" style={{ marginTop: 14 }}>
-          <T>
-            <T bold>{preview.counts.valid}</T> valid ·{' '}
-            <T bold tone="warning">
-              {preview.counts.duplicate}
-            </T>{' '}
-            duplicate ·{' '}
-            <T bold tone="danger">
-              {preview.counts.invalid}
-            </T>{' '}
-            invalid
-          </T>
-          <View style={{ marginTop: 8 }}>
-            {preview.rows.slice(0, 12).map((r) => (
-              <View
-                key={`${r.line}-${r.input}`}
-                style={{
-                  flexDirection: 'row',
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                  paddingVertical: 7,
-                  gap: 8,
-                }}
-              >
-                <T style={{ flex: 1.2 }} numberOfLines={1}>
-                  {r.name || '—'}
-                </T>
-                <T style={{ flex: 1.4 }} numberOfLines={1}>
-                  {r.phone || r.input}
-                </T>
-                <T tone={STATUS[r.status][1]} style={{ flex: 1, fontWeight: '600' }}>
-                  {STATUS[r.status][0]}
-                </T>
-              </View>
-            ))}
-            {preview.rows.length > 12 ? (
-              <T tone="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                …and {preview.rows.length - 12} more rows
-              </T>
-            ) : null}
-          </View>
-          <Select
-            label="Where did consent come from?"
-            value={consentSource}
-            onChange={setConsentSource}
-            options={CONSENT_SOURCES.map((v) => ({
-              value: v,
-              label: `${CONSENT_SOURCE_LABELS[v]} (${v})`,
-            }))}
-            testID="consent-source"
-          />
-          <Checkbox
-            checked={declared}
-            onChange={setDeclared}
-            label="I confirm these people agreed to receive voice calls from me and I may contact them."
-            testID="import-declaration"
-          />
-          <Button
-            title={`Add ${valid} contacts`}
-            onPress={commit}
-            loading={busy}
-            disabled={!valid || !declared}
-            testID="import-commit"
-          />
+        <View style={{ marginTop: 4 }}>
+          {c.optedOut ? (
+            <Tag label={t('contacts.optedOut')} tone="danger" />
+          ) : (
+            <Tag label={t('contacts.consent')} tone="success" />
+          )}
         </View>
-      ) : null}
-    </Card>
+      </View>
+      <IconButton
+        icon="ellipsis-horizontal"
+        onPress={() => onMenu(c)}
+        accessibilityLabel={t('contacts.actions', { name: c.name || c.phone })}
+      />
+    </View>
   );
 }
 
-export default function ContactsScreen() {
-  const { colors } = useTheme();
+export default function ContactsScreen({ navigation }) {
+  const { t } = useI18n();
+  const toast = useToast();
   const [q, setQ] = useState('');
   const [group, setGroup] = useState('');
   const [groups, setGroups] = useState([]);
@@ -297,8 +75,12 @@ export default function ContactsScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [error, setError] = useState(null);
+  const [menuFor, setMenuFor] = useState(null);
+  const [confirmFor, setConfirmFor] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const reqId = useRef(0);
 
   const load = useCallback(
@@ -316,6 +98,7 @@ export default function ContactsScreen() {
         setHasMore(r.hasMore);
         setTotal(r.total);
         setError(null);
+        setLoadedOnce(true);
       } catch (e) {
         setError(errorMessage(e));
       } finally {
@@ -334,151 +117,159 @@ export default function ContactsScreen() {
   );
 
   useEffect(() => {
-    const t = setTimeout(() => load(1), 300);
-    return () => clearTimeout(t);
+    const tm = setTimeout(() => load(1), 300);
+    return () => clearTimeout(tm);
   }, [load]);
+
+  // Refresh when coming back (e.g. after an import).
   useFocusEffect(
     useCallback(() => {
       loadGroups();
+      if (loadedOnce) load(1);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadGroups]),
   );
 
-  function remove(c) {
-    Alert.alert('Delete contact?', `${c.name || c.phone} will be removed from “${c.groupName}”.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api(`/contacts/${c.id}`, { method: 'DELETE' });
-            setItems((xs) => xs.filter((x) => x.id !== c.id));
-            setTotal((t) => t - 1);
-            loadGroups();
-          } catch (e) {
-            Alert.alert('Could not delete', errorMessage(e));
-          }
-        },
-      },
-    ]);
+  async function remove() {
+    const c = confirmFor;
+    setDeleting(true);
+    try {
+      await api(`/contacts/${c.id}`, { method: 'DELETE' });
+      setItems((xs) => xs.filter((x) => x.id !== c.id));
+      setTotal((n) => n - 1);
+      loadGroups();
+      toast.show(t('contacts.deleted'));
+    } catch (e) {
+      toast.show(errorMessage(e), 'danger');
+    } finally {
+      setDeleting(false);
+      setConfirmFor(null);
+    }
   }
+
+  const noContactsAtAll = loadedOnce && !q && !group && total === 0;
 
   const header = (head) => (
     <View>
       {head}
-      <ImportCard
-        onImported={() => {
-          load(1);
-          loadGroups();
-        }}
+      <Button
+        title={t('contacts.import')}
+        icon="add"
+        onPress={() => navigation.navigate('ImportContacts')}
+        style={{ marginBottom: 14 }}
+        testID="open-import"
       />
-      <Card style={{ marginBottom: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
-        <H2>All contacts</H2>
-        <Field
-          value={q}
-          onChangeText={setQ}
-          placeholder="Search name or number"
-          accessibilityLabel="Search name or number"
-          autoCapitalize="none"
-        />
-        <View style={{ height: 8 }} />
-        <Select
-          value={group}
-          onChange={setGroup}
-          options={[
-            { value: '', label: 'All groups' },
-            ...groups.map((g) => ({ value: g.id, label: `${g.name} (${g.count})` })),
-          ]}
-          label="Group"
-        />
-        <ErrorText>{error}</ErrorText>
-        <T tone="muted" style={{ fontSize: 13, marginTop: 8 }}>
-          {total.toLocaleString()} contacts
-        </T>
-      </Card>
+      {!noContactsAtAll ? (
+        <>
+          <Field
+            value={q}
+            onChangeText={setQ}
+            placeholder={t('contacts.search')}
+            accessibilityLabel={t('contacts.search')}
+            autoCapitalize="none"
+          />
+          <View style={{ height: 10 }} />
+          <SegmentedTabs
+            value={group}
+            onChange={setGroup}
+            options={[
+              { value: '', label: t('contacts.all') },
+              ...groups.map((g) => ({ value: g.id, label: `${g.name} (${g.count})` })),
+            ]}
+          />
+          <ErrorText>{error}</ErrorText>
+          <T tone="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+            {t('contacts.count', { n: total.toLocaleString() })}
+          </T>
+        </>
+      ) : null}
     </View>
   );
 
   return (
     <Screen scroll={false}>
       {() => (
-        <FlatList
-          data={items}
-          keyExtractor={(c) => c.id}
-          contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
-          keyboardShouldPersistTaps="handled"
-          ListHeaderComponent={header(
-            <ScreenHeader
-              title="Contacts"
-              sub="Only upload people you are authorised to contact. Consent is recorded for every import."
-            />,
-          )}
-          onEndReached={() => hasMore && !loading && load(page + 1)}
-          onEndReachedThreshold={0.4}
-          ListFooterComponent={
-            <View
-              style={{
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                borderWidth: 1,
-                borderTopWidth: 0,
-                borderBottomLeftRadius: 12,
-                borderBottomRightRadius: 12,
-                padding: 12,
-              }}
-            >
-              {loading ? (
-                <Loading />
-              ) : !items.length ? (
-                <T tone="muted">No contacts found.</T>
-              ) : null}
-            </View>
-          }
-          renderItem={({ item: c }) => (
-            <View
-              style={{
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                borderLeftWidth: 1,
-                borderRightWidth: 1,
-                paddingHorizontal: 16,
-              }}
-            >
+        <>
+          <FlatList
+            data={items}
+            keyExtractor={(c) => c.id}
+            contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={header(
+              <ScreenHeader title={t('contacts.title')} sub={t('contacts.sub')} />,
+            )}
+            onEndReached={() => hasMore && !loading && load(page + 1)}
+            onEndReachedThreshold={0.4}
+            ListEmptyComponent={
+              loading && !loadedOnce ? (
+                <View style={{ gap: 12 }}>
+                  {[0, 1, 2, 3].map((i) => (
+                    <View key={i} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                      <Skeleton height={40} width={40} radius={20} />
+                      <View style={{ flex: 1, gap: 6 }}>
+                        <Skeleton height={14} width="60%" />
+                        <Skeleton height={12} width="40%" />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : noContactsAtAll ? (
+                <EmptyState
+                  icon="people-outline"
+                  title={t('contacts.empty')}
+                  message={t('contacts.emptySub')}
+                />
+              ) : (
+                <T tone="muted" style={{ paddingVertical: 12 }}>
+                  {t('contacts.noMatch')}
+                </T>
+              )
+            }
+            renderItem={({ item, index }) => (
               <View
                 style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
+                  borderTopLeftRadius: index === 0 ? 12 : 0,
+                  borderTopRightRadius: index === 0 ? 12 : 0,
+                  borderBottomLeftRadius: index === items.length - 1 ? 12 : 0,
+                  borderBottomRightRadius: index === items.length - 1 ? 12 : 0,
+                  overflow: 'hidden',
                 }}
               >
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <T bold numberOfLines={1}>
-                    {c.name || 'No name'}
-                  </T>
-                  <T tone="muted" style={{ fontSize: 13 }}>
-                    {c.phone} · {c.groupName}
-                  </T>
-                  <View style={{ marginTop: 4 }}>
-                    {c.optedOut ? (
-                      <Tag label="Opted out" tone="danger" />
-                    ) : (
-                      <Tag label="Consent on file" tone="success" />
-                    )}
-                  </View>
-                </View>
-                <Button
-                  title="Delete"
-                  variant="secondary"
-                  onPress={() => remove(c)}
-                  accessibilityLabel={`Delete ${c.name || c.phone}`}
-                />
+                <ContactRow c={item} onMenu={setMenuFor} />
               </View>
-            </View>
-          )}
-        />
+            )}
+            ListFooterComponent={
+              loading && loadedOnce && items.length ? (
+                <Skeleton height={14} width="40%" style={{ marginTop: 12 }} />
+              ) : null
+            }
+          />
+          <ActionMenu
+            visible={!!menuFor}
+            onClose={() => setMenuFor(null)}
+            title={menuFor?.name || menuFor?.phone}
+            actions={[
+              {
+                label: t('contacts.delete'),
+                icon: 'trash-outline',
+                tone: 'danger',
+                onPress: () => setConfirmFor(menuFor),
+              },
+            ]}
+          />
+          <ConfirmSheet
+            visible={!!confirmFor}
+            title={t('contacts.deleteConfirm')}
+            message={t('contacts.deleteMsg', {
+              name: confirmFor?.name || confirmFor?.phone,
+              group: confirmFor?.groupName,
+            })}
+            confirmLabel={t('common.delete')}
+            onConfirm={remove}
+            onClose={() => setConfirmFor(null)}
+            busy={deleting}
+          />
+        </>
       )}
     </Screen>
   );

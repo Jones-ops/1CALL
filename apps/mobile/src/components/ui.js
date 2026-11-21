@@ -1,14 +1,16 @@
 // UI kit mirroring the 1CALL prototype: .card, .stat, .btn (primary / sec /
-// acc / bad), .go, .tag, .steps, .bar, .modal, form fields.
-import { useState } from 'react';
+// acc / bad), .go, .tag, .steps, .bar, .modal, form fields — plus skeletons,
+// tab/chip rows, avatars, action menus and confirm sheets.
+import { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
   FlatList,
   Modal,
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -17,9 +19,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MIN_TOUCH, radius, useTheme } from '../theme';
+import { useI18n } from '../i18n';
+
 /**
  * Page shell: safe area + scrollable content with h1/sub.
- * Pass `scroll={false}` to render a FlatList yourself (use ScreenHeader inside it).
+ *  - `scroll={false}`: render a FlatList yourself (children may be a function receiving the header).
+ *  - `footer`: content pinned to the bottom (e.g. Back / Next), always reachable.
  */
 export function Screen({
   title,
@@ -29,6 +34,7 @@ export function Screen({
   refreshing = false,
   back = false,
   scroll = true,
+  footer = null,
   testID,
 }) {
   const { colors } = useTheme();
@@ -38,7 +44,7 @@ export function Screen({
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }} testID={testID}>
       {scroll ? (
         <ScrollView
-          contentContainerStyle={{ padding: 14, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 14, paddingBottom: footer ? 16 : 32 }}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
@@ -52,12 +58,29 @@ export function Screen({
           {typeof children === 'function' ? children(head) : children}
         </View>
       )}
+      {footer ? (
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center',
+          }}
+        >
+          {footer}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 export function ScreenHeader({ title, sub, back }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const nav = useNavigation();
   return (
     <View>
@@ -65,7 +88,7 @@ export function ScreenHeader({ title, sub, back }) {
         <Pressable
           onPress={() => nav.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.goBack')}
           hitSlop={8}
           style={{
             minHeight: MIN_TOUCH,
@@ -75,7 +98,7 @@ export function ScreenHeader({ title, sub, back }) {
           }}
         >
           <Ionicons name="chevron-back" size={20} color={colors.primary} />
-          <Text style={{ color: colors.primary, fontWeight: '600' }}>Back</Text>
+          <Text style={{ color: colors.primary, fontWeight: '600' }}>{t('common.back')}</Text>
         </Pressable>
       ) : null}
       {title ? <H1>{title}</H1> : null}
@@ -167,6 +190,7 @@ export function Button({
     secondary: { bg: 'transparent', fg: colors.primary, bd: colors.primary },
     accent: { bg: colors.accent, fg: colors.accentText, bd: colors.accent },
     danger: { bg: colors.danger, fg: '#fff', bd: colors.danger },
+    ghost: { bg: 'transparent', fg: colors.primary, bd: 'transparent' },
   }[variant];
   const off = disabled || loading;
   return (
@@ -200,17 +224,43 @@ export function Button({
       ) : icon ? (
         <Ionicons name={icon} size={big ? 20 : 16} color={v.fg} />
       ) : null}
-      <Text
-        style={{
-          color: v.fg,
-          fontWeight: big ? '800' : '600',
-          fontSize: big ? 18 : 15,
-          letterSpacing: big ? 0.5 : 0,
-          textAlign: 'center',
-        }}
-      >
-        {title}
-      </Text>
+      {title ? (
+        <Text
+          style={{
+            color: v.fg,
+            fontWeight: big ? '800' : '600',
+            fontSize: big ? 18 : 15,
+            letterSpacing: big ? 0.5 : 0,
+            textAlign: 'center',
+          }}
+        >
+          {title}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
+/** Round icon-only button (e.g. "⋯" menus). */
+export function IconButton({ icon, onPress, accessibilityLabel, color, size = 22, testID }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={6}
+      style={({ pressed }) => ({
+        width: MIN_TOUCH,
+        height: MIN_TOUCH,
+        borderRadius: MIN_TOUCH / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: pressed ? colors.border : 'transparent',
+      })}
+    >
+      <Ionicons name={icon} size={size} color={color || colors.muted} />
     </Pressable>
   );
 }
@@ -237,33 +287,63 @@ export function Label({ children }) {
   );
 }
 
-export function Field({ label, error, style, inputStyle, multiline, ...props }) {
+/** Text input. Password fields (secureTextEntry) get a show/hide eye. */
+export function Field({ label, error, style, inputStyle, multiline, secureTextEntry, ...props }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
+  const [hidden, setHidden] = useState(true);
+  const isPassword = !!secureTextEntry;
   return (
     <View style={style}>
       {label ? <Label>{label}</Label> : null}
-      <TextInput
-        accessibilityLabel={label}
-        placeholderTextColor={colors.muted}
-        multiline={multiline}
-        style={[
-          {
-            backgroundColor: colors.card,
-            borderColor: error ? colors.danger : colors.border,
-            borderWidth: 1,
-            borderRadius: radius.button,
-            paddingHorizontal: 10,
-            paddingVertical: 9,
-            minHeight: MIN_TOUCH,
-            color: colors.text,
-            fontSize: 15,
-            textAlignVertical: multiline ? 'top' : 'center',
-          },
-          multiline && { minHeight: 100 },
-          inputStyle,
-        ]}
-        {...props}
-      />
+      <View style={{ justifyContent: 'center' }}>
+        <TextInput
+          accessibilityLabel={label}
+          placeholderTextColor={colors.muted}
+          multiline={multiline}
+          secureTextEntry={isPassword && hidden}
+          style={[
+            {
+              backgroundColor: colors.card,
+              borderColor: error ? colors.danger : colors.border,
+              borderWidth: 1,
+              borderRadius: radius.button,
+              paddingHorizontal: 10,
+              paddingRight: isPassword ? 48 : 10,
+              paddingVertical: 9,
+              minHeight: MIN_TOUCH,
+              color: colors.text,
+              fontSize: 15,
+              textAlignVertical: multiline ? 'top' : 'center',
+            },
+            multiline && { minHeight: 100 },
+            inputStyle,
+          ]}
+          {...props}
+        />
+        {isPassword ? (
+          <Pressable
+            onPress={() => setHidden((h) => !h)}
+            accessibilityRole="button"
+            accessibilityLabel={hidden ? t('common.showPassword') : t('common.hidePassword')}
+            hitSlop={6}
+            style={{
+              position: 'absolute',
+              right: 2,
+              width: MIN_TOUCH,
+              height: MIN_TOUCH,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons
+              name={hidden ? 'eye-outline' : 'eye-off-outline'}
+              size={20}
+              color={colors.muted}
+            />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? (
         <T tone="danger" style={{ fontSize: 13, marginTop: 4 }}>
           {error}
@@ -311,10 +391,12 @@ export function Checkbox({ checked, onChange, label, testID }) {
 }
 
 /** Dropdown: looks like an input, opens a modal list. options: [{value,label}] */
-export function Select({ label, value, options, onChange, placeholder = 'Select…', testID }) {
+export function Select({ label, value, options, onChange, placeholder, testID }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value);
+  const ph = placeholder ?? t('common.select');
   return (
     <View>
       {label ? <Label>{label}</Label> : null}
@@ -322,7 +404,7 @@ export function Select({ label, value, options, onChange, placeholder = 'Select�
         testID={testID}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={`${label || 'Select'}: ${current?.label || placeholder}`}
+        accessibilityLabel={`${label || ph}: ${current?.label || ph}`}
         style={{
           backgroundColor: colors.card,
           borderColor: colors.border,
@@ -338,7 +420,7 @@ export function Select({ label, value, options, onChange, placeholder = 'Select�
           style={{ flex: 1, color: current ? colors.text : colors.muted, fontSize: 15 }}
           numberOfLines={1}
         >
-          {current?.label || placeholder}
+          {current?.label || ph}
         </Text>
         <Ionicons name="chevron-down" size={18} color={colors.muted} />
       </Pressable>
@@ -384,12 +466,13 @@ export function Select({ label, value, options, onChange, placeholder = 'Select�
 /** Centered modal (the prototype's .modal). */
 export function Sheet({ visible, onClose, title, children }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
         style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: 16 }}
         onPress={onClose}
-        accessibilityLabel="Close"
+        accessibilityLabel={t('common.close')}
       >
         <Pressable
           style={{
@@ -405,6 +488,194 @@ export function Sheet({ visible, onClose, title, children }) {
         </Pressable>
       </Pressable>
     </Modal>
+  );
+}
+
+/** "⋯" action menu. actions: [{ label, icon, onPress, tone }] */
+export function ActionMenu({ visible, onClose, title, actions }) {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  return (
+    <Sheet visible={visible} onClose={onClose} title={title}>
+      {actions.map((a) => (
+        <Pressable
+          key={a.label}
+          testID={a.testID}
+          onPress={() => {
+            onClose();
+            a.onPress();
+          }}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            minHeight: MIN_TOUCH + 4,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          {a.icon ? (
+            <Ionicons name={a.icon} size={20} color={a.tone ? colors[a.tone] : colors.primary} />
+          ) : null}
+          <Text
+            style={{
+              color: a.tone ? colors[a.tone] : colors.text,
+              fontSize: 15,
+              fontWeight: '600',
+            }}
+          >
+            {a.label}
+          </Text>
+        </Pressable>
+      ))}
+      <Button
+        title={t('common.cancel')}
+        variant="ghost"
+        onPress={onClose}
+        style={{ marginTop: 8 }}
+      />
+    </Sheet>
+  );
+}
+
+/** Confirmation dialog that works on every platform. */
+export function ConfirmSheet({
+  visible,
+  title,
+  message,
+  confirmLabel,
+  tone = 'danger',
+  onConfirm,
+  onClose,
+  busy,
+}) {
+  const { t } = useI18n();
+  return (
+    <Sheet visible={visible} onClose={onClose} title={title}>
+      {message ? <T style={{ marginBottom: 14 }}>{message}</T> : null}
+      <Row>
+        <Button title={t('common.cancel')} variant="secondary" onPress={onClose} />
+        <Button
+          title={confirmLabel}
+          variant={tone === 'danger' ? 'danger' : 'primary'}
+          onPress={onConfirm}
+          loading={busy}
+          style={{ flexGrow: 1 }}
+          testID="confirm-sheet-ok"
+        />
+      </Row>
+    </Sheet>
+  );
+}
+
+/** Horizontally scrolling pill tabs / filter chips. options: [{value,label}] */
+export function SegmentedTabs({ options, value, onChange, testID }) {
+  const { colors } = useTheme();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+      style={{ flexGrow: 0, marginBottom: 14 }}
+      testID={testID}
+    >
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            onPress={() => onChange(o.value)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            style={{
+              minHeight: 40,
+              paddingHorizontal: 16,
+              borderRadius: radius.pill,
+              justifyContent: 'center',
+              backgroundColor: on ? colors.primary : colors.card,
+              borderWidth: 1,
+              borderColor: on ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ color: on ? '#fff' : colors.text, fontWeight: '600', fontSize: 14 }}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/** Initials in a coloured circle. */
+export function Avatar({ name, size = 40 }) {
+  const { colors } = useTheme();
+  const initials =
+    String(name || '?')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase() || '#';
+  const palette = [colors.primary, colors.accent, colors.success, '#7b5cd6', '#0e8fa3'];
+  const idx = [...String(name || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length;
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: palette[idx],
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ color: '#fff', fontWeight: '700', fontSize: size * 0.38 }}>{initials}</Text>
+    </View>
+  );
+}
+
+/** Pulsing grey block shown while content loads (respects "reduce motion"). */
+export function Skeleton({ height = 16, width = '100%', radius: r = 8, style }) {
+  const { colors } = useTheme();
+  const opacity = useRef(new Animated.Value(0.5)).current;
+  useEffect(() => {
+    let loop;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((reduce) => {
+        if (reduce) return;
+        loop = Animated.loop(
+          Animated.sequence([
+            Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+            Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+          ]),
+        );
+        loop.start();
+      })
+      .catch(() => {});
+    return () => loop?.stop();
+  }, [opacity]);
+  return (
+    <Animated.View
+      style={[{ height, width, borderRadius: r, backgroundColor: colors.border, opacity }, style]}
+    />
+  );
+}
+
+/** A card-shaped loading placeholder with a few lines. */
+export function SkeletonCard({ lines = 3 }) {
+  return (
+    <Card>
+      <Skeleton height={20} width="50%" style={{ marginBottom: 14 }} />
+      {Array.from({ length: lines }, (_, i) => (
+        <Skeleton key={i} height={14} width={`${90 - i * 15}%`} style={{ marginBottom: 10 }} />
+      ))}
+    </Card>
   );
 }
 
@@ -442,6 +713,40 @@ export function Stat({ value, label, tone, testID }) {
   );
 }
 
+/** Compact stat for 3-per-row grids. */
+export function MiniStat({ value, label, tone, testID }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      testID={testID}
+      accessible
+      accessibilityLabel={`${label}: ${value}`}
+      style={{
+        flexGrow: 1,
+        flexBasis: '30%',
+        minWidth: 92,
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: radius.card,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+      }}
+    >
+      <Text
+        style={{ fontSize: 20, fontWeight: '700', color: tone ? colors[tone] : colors.text }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {value}
+      </Text>
+      <Text style={{ color: colors.muted, fontSize: 12 }} numberOfLines={2}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 export function Tag({ label, tone = 'text' }) {
   const { colors } = useTheme();
   return (
@@ -460,37 +765,38 @@ export function Tag({ label, tone = 'text' }) {
   );
 }
 
+/** Wizard progress: "Step 2 of 4 · Message" with a bar. */
 export function Steps({ steps, current }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   return (
     <View
-      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}
+      style={{ marginBottom: 14 }}
       accessibilityRole="progressbar"
-      accessibilityLabel={`Step ${current} of ${steps.length}: ${steps[current - 1]}`}
+      accessibilityLabel={`${t('wizard.step', { n: current, total: steps.length })} · ${steps[current - 1]}`}
     >
-      {steps.map((s, i) => {
-        const on = i + 1 === current;
-        return (
+      <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 6 }}>
+        {t('wizard.step', { n: current, total: steps.length })}
+        <Text style={{ color: colors.text, fontWeight: '700' }}>{` · ${steps[current - 1]}`}</Text>
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        {steps.map((s, i) => (
           <View
             key={s}
             style={{
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: radius.pill,
-              backgroundColor: on ? colors.primary : colors.border,
+              flex: 1,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: i < current ? colors.primary : colors.border,
             }}
-          >
-            <Text
-              style={{ fontSize: 13, color: on ? '#fff' : colors.text }}
-            >{`${i + 1}. ${s}`}</Text>
-          </View>
-        );
-      })}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
-export function ProgressBar({ value }) {
+export function ProgressBar({ value, color }) {
   const { colors } = useTheme();
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
   return (
@@ -504,14 +810,15 @@ export function ProgressBar({ value }) {
         overflow: 'hidden',
       }}
     >
-      <View style={{ width: `${pct}%`, height: '100%', backgroundColor: colors.accent }} />
+      <View style={{ width: `${pct}%`, height: '100%', backgroundColor: color || colors.accent }} />
     </View>
   );
 }
 
 /** Simple table: columns [{key,label,flex,render}] */
-export function Table({ columns, rows, keyField = 'id', empty = 'Nothing here yet.' }) {
+export function Table({ columns, rows, keyField = 'id', empty }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const cell = { paddingVertical: 8, paddingRight: 6 };
   return (
     <View>
@@ -532,7 +839,7 @@ export function Table({ columns, rows, keyField = 'id', empty = 'Nothing here ye
       </View>
       {rows.length === 0 ? (
         <T tone="muted" style={{ paddingVertical: 10 }}>
-          {empty}
+          {empty ?? t('common.nothingYet')}
         </T>
       ) : null}
       {rows.map((r, i) => (
@@ -607,6 +914,38 @@ export function Loading() {
   return <ActivityIndicator style={{ marginVertical: 24 }} color={colors.primary} />;
 }
 
+/** A friendly empty state with an icon and an optional action. */
+export function EmptyState({ icon = 'sparkles-outline', title, message, action }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
+      <View
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: colors.border,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name={icon} size={26} color={colors.primary} />
+      </View>
+      {title ? (
+        <T bold style={{ textAlign: 'center' }}>
+          {title}
+        </T>
+      ) : null}
+      {message ? (
+        <T tone="muted" style={{ textAlign: 'center', fontSize: 14 }}>
+          {message}
+        </T>
+      ) : null}
+      {action ? <View style={{ marginTop: 6 }}>{action}</View> : null}
+    </View>
+  );
+}
+
 export const statusTone = (s) =>
   ({
     succeeded: 'success',
@@ -622,5 +961,3 @@ export const statusTone = (s) =>
     active: 'success',
     suspended: 'danger',
   })[s] || 'text';
-
-export const styles = StyleSheet.create({});
