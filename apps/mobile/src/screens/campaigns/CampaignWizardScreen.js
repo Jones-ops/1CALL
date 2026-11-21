@@ -22,6 +22,7 @@ import {
   T,
 } from '../../components/ui';
 import { MIN_TOUCH, radius, useTheme } from '../../theme';
+import { haptic } from '../../utils/haptics';
 
 const n = (v) => Number(v ?? 0).toLocaleString('en-US');
 
@@ -167,6 +168,7 @@ export default function CampaignWizardScreen({ navigation, route }) {
         },
       });
       setConfirmOpen(false);
+      haptic.success();
       navigation.replace('CampaignLive', { id: r.campaign.id });
     } catch (e) {
       setLaunchError(errorMessage(e));

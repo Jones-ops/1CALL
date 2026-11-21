@@ -5,6 +5,7 @@ import { AccessibilityInfo, Animated, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { radius, useTheme } from '../theme';
+import { haptic } from '../utils/haptics';
 
 const ToastContext = createContext({ show: () => {} });
 
@@ -19,6 +20,7 @@ export function ToastProvider({ children }) {
     (message, tone = 'success') => {
       clearTimeout(timer.current);
       setToast({ message, tone, key: Date.now() });
+      (tone === 'danger' ? haptic.error : tone === 'warning' ? haptic.warning : haptic.success)();
       AccessibilityInfo.announceForAccessibility?.(message);
       Animated.timing(anim, { toValue: 1, duration: 180, useNativeDriver: true }).start();
       timer.current = setTimeout(() => {

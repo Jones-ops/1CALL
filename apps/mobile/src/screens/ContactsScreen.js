@@ -21,6 +21,7 @@ import {
   Tag,
 } from '../components/ui';
 import { useTheme } from '../theme';
+import SwipeRow from '../components/SwipeRow';
 
 export { ImportCard } from './ImportContactsScreen';
 
@@ -235,7 +236,9 @@ export default function ContactsScreen({ navigation }) {
                   overflow: 'hidden',
                 }}
               >
-                <ContactRow c={item} onMenu={setMenuFor} />
+                <SwipeRow onDelete={() => setConfirmFor(item)} deleteLabel={t('common.delete')}>
+                  <ContactRow c={item} onMenu={setMenuFor} />
+                </SwipeRow>
               </View>
             )}
             ListFooterComponent={

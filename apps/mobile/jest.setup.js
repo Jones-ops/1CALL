@@ -50,3 +50,10 @@ jest.mock('@react-native-community/datetimepicker', () => {
   DateTimePicker.DateTimePickerAndroid = { open: jest.fn() };
   return { __esModule: true, default: DateTimePicker, DateTimePickerAndroid: { open: jest.fn() } };
 });
+
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(async () => {}),
+  notificationAsync: jest.fn(async () => {}),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
+}));

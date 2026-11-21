@@ -3,16 +3,11 @@
     "name": "1CALL",
     "slug": "1call",
     "scheme": "onecall",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#0b3a8f",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0b3a8f"
-    },
     "ios": {
       "bundleIdentifier": "ke.onecall.app",
       "supportsTablet": false,
@@ -24,7 +19,7 @@
     "android": {
       "package": "ke.onecall.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0b3a8f"
       },
       "permissions": [
@@ -53,7 +48,20 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-updates"
+      "expo-updates",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#0b3a8f",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#0b1226"
+          }
+        }
+      ]
     ],
     "extra": {
       "apiUrl": {},

@@ -612,14 +612,15 @@ export function SegmentedTabs({ options, value, onChange, testID }) {
 /** Initials in a coloured circle. */
 export function Avatar({ name, size = 40 }) {
   const { colors } = useTheme();
-  const initials =
-    String(name || '?')
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase() || '#';
+  // Initials from words that start with a letter; phone-only contacts get a person icon.
+  const initials = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => /^[A-Za-zÀ-ÿ]/.test(w))
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
   const palette = [colors.primary, colors.accent, colors.success, '#7b5cd6', '#0e8fa3'];
   const idx = [...String(name || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length;
   return (
@@ -635,7 +636,11 @@ export function Avatar({ name, size = 40 }) {
         justifyContent: 'center',
       }}
     >
-      <Text style={{ color: '#fff', fontWeight: '700', fontSize: size * 0.38 }}>{initials}</Text>
+      {initials ? (
+        <Text style={{ color: '#fff', fontWeight: '700', fontSize: size * 0.38 }}>{initials}</Text>
+      ) : (
+        <Ionicons name="person" size={size * 0.5} color="#fff" />
+      )}
     </View>
   );
 }

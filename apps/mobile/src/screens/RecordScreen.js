@@ -34,6 +34,7 @@ import {
   T,
 } from '../components/ui';
 import { useTheme } from '../theme';
+import { haptic } from '../utils/haptics';
 
 const UPLOAD_TYPES = [
   'audio/mpeg',
@@ -189,6 +190,7 @@ export default function RecordScreen({ navigation }) {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
+      haptic.press();
       setClip(null);
       setLevels(Array(METER_BARS).fill(0));
       setPhase('recording');
@@ -207,6 +209,7 @@ export default function RecordScreen({ navigation }) {
   }
   async function stop() {
     const durationSec = (recState.durationMillis || 0) / 1000;
+    haptic.press();
     await recorder.stop();
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     if (!recorder.uri) {
